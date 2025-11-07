@@ -1,0 +1,30 @@
+{
+  "name": "ventas-automatizadas-backend",
+  "version": "1.0.0",
+  "description": "Backend API para el sistema de ventas automatizadas con IA, manejo de stock y chatbot n8n.",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "keywords": [
+    "backend",
+    "express",
+    "postgresql",
+    "api",
+    "ventas",
+    "automatizadas"
+  ],
+  "author": "José Morales",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.11.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

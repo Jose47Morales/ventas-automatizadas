@@ -137,3 +137,9 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# PostgreSQL DB files
+pgdata/
+
+# n8n files
+n8n_data/
