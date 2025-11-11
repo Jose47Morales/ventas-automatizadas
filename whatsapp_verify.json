@@ -1,0 +1,48 @@
+{
+  "name": "WhatsApp Verify Token",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "verify",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "WebhookNode",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [400, 300],
+      "webhookId": "whatsapp-verify",
+      "notesInFlow": true,
+      "notes": "Este webhook recibe la petición GET de Meta con el hub.challenge"
+    },
+    {
+      "parameters": {
+        "functionCode": "const query = this.getRequestObject().query;\nif (query['hub.verify_token'] === 'ventas_auto_verify') {\n  return [{\n    json: {},\n    response: query['hub.challenge']\n  }];\n} else {\n  return [{\n    json: { error: 'Invalid verify token' },\n    response: 'Invalid verify token' }];\n}"
+      },
+      "id": "FunctionNode",
+      "name": "Responder a Meta",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [600, 300],
+      "notesInFlow": true,
+      "notes": "Devuelve el hub.challenge si el verify_token coincide"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Responder a Meta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+    },
+  "active": true,
+  "settings": {},
+  "id": "whatsapp-verify-workflow"
+}

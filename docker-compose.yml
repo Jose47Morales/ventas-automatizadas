@@ -13,6 +13,7 @@ services:
       - "${POSTGRES_PORT}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./backend/src/database:/src/database
 
   backend:
     build: ./backend
@@ -26,6 +27,7 @@ services:
       - DB_USER=${POSTGRES_USER}
       - DB_PASS=${POSTGRES_PASSWORD}
       - DB_NAME=${POSTGRES_DB}
+      - VERIFY_TOKEN=${VERIFY_TOKEN}
     depends_on:
       - db
     volumes:
@@ -58,6 +60,9 @@ services:
       - DB_POSTGRESDB_USER=${POSTGRES_USER}
       - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
       - GENERIC_TIMEZONE=America/Bogota
+      - N8N_HOST=n8n.local
+      - N8N_PORT=5678
+      - WEBHOOK_URL=https://launched-recent-peterson-shot.trycloudflare.com
     depends_on:
       - db
     volumes:
