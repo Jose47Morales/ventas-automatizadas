@@ -14,7 +14,10 @@
     "postgresql",
     "api",
     "ventas",
-    "automatizadas"
+    "automatizadas",
+    "axios",
+    "body-parser",
+    "dotenv"
   ],
   "author": "José Morales",
   "license": "MIT",
