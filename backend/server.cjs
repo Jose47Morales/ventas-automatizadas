@@ -1,16 +1,30 @@
+// backend/server.cjs
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
-
-const { pool, testConnection } = require('./src/database/db.cjs');
+const { Pool } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+// Configurar la conexión a PostgreSQL usando variables de entorno
+const pool = new Pool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port: process.env.DB_PORT || 5432,
+    ssl: { rejectUnauthorized: false }, // Para servicios gestionados
+});
+
+pool.connect()
+    .then(() => console.log('Conectado a la base de datos correctamente'))
+    .catch(err => console.error('Error conectando a la base de datos:', err));
+
 app.use(bodyParser.json());
 
-// Endpoint to receive WhatsApp messages
+// Endpoint de verificación de WhatsApp
 app.get('/webhook/whatsapp-webhook', (req, res) => {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -24,13 +38,11 @@ app.get('/webhook/whatsapp-webhook', (req, res) => {
     }
 });
 
-// Endpoint to handle incoming messages
+// Endpoint para recibir mensajes de WhatsApp y reenviarlos a n8n
 app.post('/webhook/whatsapp-webhook', async (req, res) => {
     try {
         const body = req.body;
-
-        // Confirmation of the message structure
-        res.sendStatus(200);
+        res.sendStatus(200); // Confirmamos recepción
 
         const entry = body.entry?.[0];
         const change = entry?.changes?.[0];
@@ -39,54 +51,50 @@ app.post('/webhook/whatsapp-webhook', async (req, res) => {
 
         if (!messages) return;
 
-        const from = messages.from; // Phone number of the sender
+        const from = messages.from;
         const type = messages.type;
         let textBody = null;
 
-        if (type === 'text') {
-            textBody = messages.text.body;
-        } else if (type === 'button') {
-            textBody = messages.button.text || messages.button.payload;
-        }
+        if (type === 'text') textBody = messages.text.body;
+        else if (type === 'button') textBody = messages.button.text || messages.button.payload;
 
-        const payload = {
-            from,
-            text: textBody,
-            type,
-            raw: body
-        };
+        const payload = { from, text: textBody, type, raw: body };
 
-        // Forward the message to n8n webhook
-        await axios.post(`${process.env.WEBHOOK_URL}`, payload);
-
-        console.log('Message forwarded to n8n:', payload);
+        await axios.post(process.env.WEBHOOK_URL, payload);
+        console.log('Mensaje enviado a n8n:', payload);
 
     } catch (error) {
-        console.error('Error processing the message:', error);
-        res.sendStatus(500);
+        console.error('Error procesando el mensaje:', error);
     }
 });
 
+// Endpoint para registrar pedidos
 app.post('/orders', async (req, res) => {
-  try {
-    const { client_name, client_phone, product_id, quantity, total, payment_status } = req.body;
-    console.log('Incoming order:', { client_name, client_phone, product_id, quantity, total, payment_status });
+    try {
+        const { client_name, client_phone, product_id, quantity, total, payment_status } = req.body;
 
-    const result = await pool.query(
-      'INSERT INTO orders (client_name, client_phone, product_id, quantity, total, payment_status, date) VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING id',
-      [client_name, client_phone, product_id, quantity, total, payment_status]
-    );
+        // Validar campos obligatorios
+        if (!client_name || !client_phone || !product_id || !quantity || !total || !payment_status) {
+            return res.status(400).json({ success: false, message: 'Faltan campos obligatorios en el pedido' });
+        }
 
-    console.log('Order inserted with ID:', result.rows[0].id);
+        const result = await pool.query(
+            `INSERT INTO orders 
+            (client_name, client_phone, product_id, quantity, total, payment_status, date) 
+            VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING id`,
+            [client_name, client_phone, product_id, quantity, total, payment_status]
+        );
 
-    res.status(201).json({ success: true, orderId: result.rows[0].id });
-  } catch (error) {
-    console.error('Error creating order:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
-  }
+        console.log('Pedido recibido:', req.body);
+        res.status(201).json({ success: true, orderId: result.rows[0].id });
+
+    } catch (error) {
+        console.error('Error creando pedido:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
 });
 
-// Start the server
+// Iniciar servidor
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`Servidor corriendo en puerto ${PORT}`);
 });
