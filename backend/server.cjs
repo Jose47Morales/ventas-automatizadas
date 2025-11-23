@@ -3,6 +3,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
 
+const { pool, testConnection } = require('./src/database/db.cjs');
+
 const app = express();
 const PORT = process.env.PORT || 4000;
 
@@ -62,6 +64,22 @@ app.post('/webhook/whatsapp-webhook', async (req, res) => {
     } catch (error) {
         console.error('Error processing the message:', error);
         res.sendStatus(500);
+    }
+});
+
+app.post('/orders', async (req, res) => {
+    try {
+        const { client_name, client_phone, product_id, quantity, total, payment_status } = req.body;
+
+        const result = await pool.query(
+            'INSERT INTO orders (client_name, client_phone, product_id, quantity, total, payment_status, date) VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING id',
+            [client_name, client_phone, product_id, quantity, total, payment_status]
+        );
+
+        res.status(201).json({ success: true, orderId: result.rows[0].id });
+    } catch (error) {
+        console.error('Error creating order:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
     }
 });
 
