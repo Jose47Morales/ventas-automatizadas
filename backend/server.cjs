@@ -25,8 +25,6 @@ pool.connect()
     .then(() => console.log('Conectado a la base de datos correctamente'))
     .catch(err => console.error('Error conectando a la base de datos:', err));
 
-app.use(bodyParser.json());
-
 // Endpoint de verificación de WhatsApp
 app.get('/webhook/whatsapp-webhook', (req, res) => {
     const mode = req.query['hub.mode'];
