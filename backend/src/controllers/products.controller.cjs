@@ -1,4 +1,4 @@
-const ordersService = require("../services/products.service.cjs");
+const productsService = require("../services/products.service.cjs");
 
 module.exports = {
     getProducts: async (req, res) => {
