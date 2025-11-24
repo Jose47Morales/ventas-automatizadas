@@ -79,6 +79,10 @@ app.use('/api/products', productsRouter);
 const ordersRouter = require('./src/routes/orders.routes.cjs');
 app.use('/api/orders', ordersRouter);
 
+// Endpoints para payments
+const paymentsRouter = require('./src/routes/payments.routes.cjs');
+app.use('/api/payments', paymentsRouter);
+
 // Endpoint para registrar logs
 app.post('/logs', async (req, res) => {
     try {
