@@ -22,6 +22,7 @@ module.exports = {
     },
 
     createPayment: async (req, res) => {
+        console.log('req.body', req.body);
         try {
             const payment = await paymentsService.createPayment(req.body);
             res.status(201).json(payment);
