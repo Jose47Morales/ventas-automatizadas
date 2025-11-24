@@ -14,6 +14,8 @@ module.exports = {
     createPayment: async (data) => {
         const { order_id, gateway, confirmation_code, status } = data;
 
+        if(!order_id) throw new Error("order_id is required");
+
         const insert = await pool.query(
             `INSERT INTO payments 
             (order_id, gateway, confirmation_code, status) 
@@ -24,8 +26,8 @@ module.exports = {
         return insert.rows[0];
     },
 
-    updatePayment: async (data) => {
-        const { id, order_id, gateway, confirmation_code, status } = data;
+    updatePayment: async (id, data) => {
+        const { order_id, gateway, confirmation_code, status } = data;
 
         const update = await pool.query(
             `UPDATE payments SET 
