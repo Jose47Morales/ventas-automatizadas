@@ -94,6 +94,44 @@ app.post('/orders', async (req, res) => {
     }
 });
 
+// Endpoint para registrar logs
+app.post('/logs', async (req, res) => {
+    try {
+        const { log_type, from_number, to_number, user_message, ai_response, intent, message_id, status, raw_data } = req.body;
+
+        // Validar campos obligatorios
+        if (!log_type) {
+            return res.status(400).json({ success: false, message: 'Faltan campos obligatorios en el log' });
+        }
+
+        const query = `
+            INSERT INTO whatsapp_logs
+            (log_type, from_number, to_number, user_message, ai_response, intent, message_id, status, raw_data)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING id
+        `;
+
+        const values = [
+            log_type,
+            from_number || null,
+            to_number || null,
+            user_message || null,
+            ai_response || null,
+            intent || null,
+            message_id || null,
+            status || null,
+            raw_data || null
+        ];
+
+        const result = await pool.query(query, values);
+
+        res.status(201).json({ success: true, logId: result.rows[0].id });
+    } catch (error) {
+        console.error('Error creando log:', error);
+        res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+    }
+});
+
 // Iniciar servidor
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en puerto ${PORT}`);
