@@ -12,7 +12,7 @@ module.exports = {
     },
 
     createOrder: async ({ client_name, client_phone, product_id, quantity}) => {
-        const productRes = await pool.query('SELECT precio FROM products WHERE id_producto = $1', [product_id]);
+        const productRes = await pool.query('SELECT precioventa_con_impuesto FROM products WHERE id_producto = $1', [product_id]);
         if (productRes.rows.length === 0) throw new Error('Producto no encontrado');
 
         const price = parseFloat(productRes.rows[0].precio);
