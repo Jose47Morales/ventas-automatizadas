@@ -11,6 +11,30 @@ module.exports = {
         return result.rows[0];
     },
 
+    searchProducts: async (search) => {
+        // Normalizamos
+        const term = '%${search.toLowerCase()}%';
+
+        const query = `
+            SELECT
+                id_producto,
+                nombre,
+                referencia,
+                precioventa_con_impuesto AS precio,
+                url_imagen
+            FROM products
+            WHERE 
+                LOWER(nombre) LIKE $1 
+                OR LOWER(referencia) LIKE $1
+                OR CAST(id_producto AS TEXT) LIKE $1
+            ORDER BY nnombre ASC
+            LIMIT 50;
+        `;
+
+        const result = await pool.query(query, [term]);
+        return result.rows;
+    },
+
     createProduct: async (data) => {
         const { nombre, referencia, codgigo_barras, invima, cum, codigo_producto_dian,
             existencias, impuesto, precioventa_con_impuesto, precio_venta_base,

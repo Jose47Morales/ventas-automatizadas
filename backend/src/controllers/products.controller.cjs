@@ -21,6 +21,30 @@ module.exports = {
         }
     },
 
+    searchProducts: async (req, res) => {
+        try {
+            const search = req.query.search || '';
+
+            if (!search) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Search query parameter is required'
+                });
+            }
+            
+            const products = await productsService.searchProducts(search);
+
+            return res.json({
+                success: true,
+                total: products.length,
+                products
+            });
+        } catch (error) {
+            console.error('Error searching products:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
     createProduct: async (req, res) => {
         try {
             const product = await productsService.createProduct(req.body);
