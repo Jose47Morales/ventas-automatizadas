@@ -20,7 +20,7 @@ module.exports = {
             WHERE 
                 LOWER(nombre) LIKE LOWER($1) OR 
                 LOWER(referencia) LIKE LOWER($1) OR
-                LOWER(codgigo_barras) LIKE LOWER($1) OR
+                LOWER(codigo_barras) LIKE LOWER($1) OR
                 LOWER(categoria) LIKE LOWER($1) OR
                 LOWER(marca) LIKE LOWER($1) OR
                 CAST(id_producto AS TEXT) LIKE $1
