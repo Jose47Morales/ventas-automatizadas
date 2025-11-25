@@ -25,6 +25,8 @@ module.exports = {
         try {
             const search = req.query.search || '';
 
+            const products = await productsService.searchProducts(search);
+
             if (!search) {
                 return res.status(400).json({
                     success: false,
@@ -32,13 +34,7 @@ module.exports = {
                 });
             }
             
-            const products = await productsService.searchProducts(search);
-
-            return res.json({
-                success: true,
-                total: products.length,
-                products
-            });
+            return res.json({ success: true, products });
         } catch (error) {
             console.error('Error searching products:', error);
             res.status(500).json({ success: false, error: error.message });

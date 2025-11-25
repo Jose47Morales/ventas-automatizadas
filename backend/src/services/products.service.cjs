@@ -27,7 +27,7 @@ module.exports = {
                 LOWER(nombre) LIKE $1 
                 OR LOWER(referencia) LIKE $1
                 OR CAST(id_producto AS TEXT) LIKE $1
-            ORDER BY nnombre ASC
+            ORDER BY nombre ASC
             LIMIT 50;
         `;
 
