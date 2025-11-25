@@ -15,23 +15,20 @@ module.exports = {
         // Normalizamos
         const term = '%${search.toLowerCase()}%';
 
-        const query = `
-            SELECT
-                id_producto,
-                nombre,
-                referencia,
-                precioventa_con_impuesto AS precio,
-                url_imagen
-            FROM products
+        const result = await pool.query(
+            `SELECT * FROM products
             WHERE 
-                LOWER(nombre) LIKE $1 
-                OR LOWER(referencia) LIKE $1
-                OR CAST(id_producto AS TEXT) LIKE $1
+                LOWER(nombre) LIKE LOWER($1) OR 
+                LOWER(referencia) LIKE LOWER($1) OR
+                LOWER(codgigo_barras) LIKE LOWER($1) OR
+                LOWER(categoria) LIKE LOWER($1) OR
+                LOWER(marca) LIKE LOWER($1) OR
+                CAST(id_producto AS TEXT) LIKE $1
             ORDER BY nombre ASC
             LIMIT 50;
-        `;
+        `, [term]
+        );
 
-        const result = await pool.query(query, [term]);
         return result.rows;
     },
 
