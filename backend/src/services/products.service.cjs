@@ -13,22 +13,22 @@ module.exports = {
 
     searchProducts: async (search) => {
         // Normalizamos
-        const term = '%${search.toLowerCase()}%';
+        const searchPattern = `%${search}%`;
 
-        const result = await pool.query(
-            `SELECT * FROM products
+        const query = `
+            SELECT * 
+            FROM products
             WHERE 
-                LOWER(nombre) LIKE LOWER($1) OR 
-                LOWER(referencia) LIKE LOWER($1) OR
-                LOWER(codigo_barras) LIKE LOWER($1) OR
-                LOWER(categoria) LIKE LOWER($1) OR
-                LOWER(marca) LIKE LOWER($1) OR
-                CAST(id_producto AS TEXT) LIKE $1
+                nombre ILIKE $1 OR 
+                referencia ILIKE $1 OR
+                codigo_barras ILIKE $1 OR
+                categoria ILIKE $1 OR
+                marca ILIKE $1
             ORDER BY nombre ASC
             LIMIT 50;
-        `, [term]
-        );
+        `;
 
+        const result = await pool.query(query, [searchPattern]);
         return result.rows;
     },
 

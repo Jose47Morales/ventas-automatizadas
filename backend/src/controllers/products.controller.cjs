@@ -25,16 +25,13 @@ module.exports = {
         try {
             const search = req.query.search || '';
 
-            const products = await productsService.searchProducts(search);
-
-            if (!search) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Search query parameter is required'
-                });
+            if (search.trim() === '') {
+                const result = await productsService.getAllProducts();
+                return res.json({ success: true, products: result });
             }
-            
-            return res.json({ success: true, products });
+
+            const products = await productsService.searchProducts(search);
+            res.json({ success: true, products });
         } catch (error) {
             console.error('Error searching products:', error);
             res.status(500).json({ success: false, error: error.message });
