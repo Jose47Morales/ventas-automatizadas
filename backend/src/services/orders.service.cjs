@@ -15,7 +15,9 @@ module.exports = {
         const productRes = await pool.query('SELECT precioventa_con_impuesto FROM products WHERE id_producto = $1', [product_id]);
         if (productRes.rows.length === 0) throw new Error('Producto no encontrado');
 
-        const price = parseFloat(productRes.rows[0].precio);
+        const quantity = Number(req.body.quantity);
+        const price = parseFloat(productRes.rows[0].precioventa_con_impuesto);
+        if (isNaN(price) || isNaN(quantity) || quantity <= 0) throw new Error('Cantidad inválida');
         const total = price * quantity;
 
         const insert = await pool.query(
