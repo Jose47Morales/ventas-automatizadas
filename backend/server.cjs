@@ -81,6 +81,10 @@ app.use('/api/orders', ordersRouter);
 const paymentsRouter = require('./src/routes/payments.routes.cjs');
 app.use('/api/payments', paymentsRouter);
 
+// Endpoints para chat sessions
+const chatSessionsRouter = require('./src/routes/chatSessions.routes.cjs');
+app.use('/api/chat-sessions', chatSessionsRouter);
+
 // Endpoint para registrar logs
 app.post('/logs', async (req, res) => {
     try {
