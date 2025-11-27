@@ -19,15 +19,34 @@ module.exports = {
 
   getChatSession: async (req, res) => {
     const { user_phone } = req.params;
+
     if (!user_phone) {
       return res.status(400).json({ success: false, error: "Falta el número de usuario" });
     }
 
     try {
-      const session = await chatSessionsService.getSession(user_phone);
-      if (!session) return res.status(404).json({ success: false, message: "No se encontró sesión" });
+      let session = await chatSessionsService.getSession(user_phone);
 
-      res.json({ success: true, session });
+      if (!session) {
+        session = await chatSessionsService.saveSession({ 
+          user_phone, 
+          state: "idle", 
+          data: {} 
+        });
+
+        return res.json({ 
+          success: true, 
+          session,
+          created: true
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        session,
+        created: false
+      });
+      
     } catch (err) {
       console.error(err);
       res.status(500).json({ success: false, error: err.message });
