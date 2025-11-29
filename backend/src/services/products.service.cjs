@@ -25,7 +25,7 @@ module.exports = {
                 categoria ILIKE $1 OR
                 marca ILIKE $1
             ORDER BY nombre ASC
-            LIMIT 50;
+            LIMIT 10;
         `;
 
         const result = await pool.query(query, [searchPattern]);
