@@ -8,7 +8,7 @@ module.exports = {
        ON CONFLICT (user_phone)
        DO UPDATE SET state = $2, data = $3, updated_at = NOW()
        RETURNING *`,
-      [user_phone, state, data ? JSON.stringify(data) : null]
+      [user_phone, state, data || null]
     );
     return result.rows[0];
   },
