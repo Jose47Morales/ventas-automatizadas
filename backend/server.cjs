@@ -85,6 +85,10 @@ app.use('/api/payments', paymentsRouter);
 const chatSessionsRouter = require('./src/routes/chatSessions.routes.cjs');
 app.use('/api/chat-sessions', chatSessionsRouter);
 
+// Endpoints para analytics
+const analyticsRouter = require('./src/routes/analytics.routes.cjs');
+app.use('/api/analytics', analyticsRouter);
+
 // Endpoint para registrar logs
 app.post('/logs', async (req, res) => {
     try {
