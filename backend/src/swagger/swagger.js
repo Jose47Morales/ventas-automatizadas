@@ -1,11 +1,13 @@
-// swagger.js
-const swaggerUi = require("swagger-ui-express");
-const YAML = require("yamljs");
-const path = require("path");
+import swaggerUi from "swagger-ui-express";
+import YAML from "yamljs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const swaggerDocument = YAML.load(path.join(__dirname, "swagger.yaml"));
 
-module.exports = {
-    serve: swaggerUi.serve,
-    setup: swaggerUi.setup(swaggerDocument),
-};
+export default function swaggerSetup(app) {
+    app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+}
