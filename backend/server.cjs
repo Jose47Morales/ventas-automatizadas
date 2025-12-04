@@ -71,7 +71,7 @@ app.post('/webhook/whatsapp-webhook', async (req, res) => {
 });
 
 // Documentación Swagger
-const swaggerDocument = require('./src/swagger/swagger.json');
+const swaggerDocument = require('./src/swagger/swagger.cjs');
 app.use('/api-docs', swagger.swaggerUi.serve, swagger.swaggerUi.setup(swaggerDocument));
 
 // Endpoints para products
