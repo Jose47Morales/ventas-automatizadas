@@ -1,138 +1,212 @@
-# **Proyecto: Ventas Automatizadas**
-### **Versión inicial:** Octubre 2025
-### **Equipo de desarrollo:** 3 personas
+# **Documentación Técnica del Proyecto - Ventas Automatizadas**
+### **Versión:** Enero 2026
+### **Equipo:** 3 integrantes (Backend - Frontend - PM)
 
----
+## **1. Descripción general**
 
-## **1. Descripción general del proyecto**
+Ventas Automatizadas es una plataforma que integra IA, automatización con n8n y una API REST para gestionar productos, pedidos, pagos y analítica en tiempo real. El objetivo es permitir ventas autónomas a través de WhatsApp y Web.
 
-Ventas Automatizadas es una plataforma inteligente que integra inteligencia artificial, automatización de procesos y gestión de inventario en tiempo real para ofrecer ventas completamente autónomas a través de WhatsApp y web.
+## **2. Arquitectura del sistema**
 
-El sistema permite atender clientes 24/7 sin personal humano, mostrando productos, procesando pagos, actualizando el inventario y generando métricas de rendimiento comercial en tiempo real.
+| Capa | Tecnología | Función |
+|------|------------|---------|
+| Backend API | Node.js + Express | Enpoints REST, validación y lógica de negocio |
+| Base de datos | PostgreSQL | Persistencia de productos, pedidos, pagos y métricas |
+| Bot Automatizado | n8n + WhatsApp Cloud API + IA | Lógistica conversacional y automatización |
+| Frontend | React + Vite | Dashboard administrativo |
+| Despliegue | Docker + Render | Producción escalable |
 
-## **2. Objetivo general**
+## **3. Convenciones de la API**
 
-Diseñar e implementar una solución integral que automatice el proceso de venta —desde la consulta del cliente hasta el pago confirmado— utilizando IA y flujos inteligentes de n8n, optimizando tiempo, eficiencia y satisfacción del cliente.
+* **Base URL**: `/api/`.
+* **Formato**: JSON
+* **Autenticación**: JWT (pendiente MVP)
+* **Códigos comunes**:
+  * `200` OK
+  * `201` Recurso creado
+  * `400` Error en la solicitud
+  * `404` No encontrado
+  * `500` Error interno
 
-## **3. Alcance funcional**
-**Incluye:**
+## **4. PRODUCTS API**
 
-- Asistente virtual (IA) integrado a WhatsApp Cloud API mediante n8n.
+### GET /api/products
+Obtiene todos los productos
 
-- Gestión completa de productos, pedidos y stock desde una API REST.
+*Respuesta 200*
+```json
+[
+  {
+    "id_producto": 1,
+    "nombre": "Laptop Lenovo",
+    "precioventa_con_impuesto": 2300000,
+    "stock": 5
+  }
+]
+```
 
-- Integración de pasarela de pagos (PayU / Stripe / MercadoPago).
+### GET /api/products/:id
+Obtiene un solo producto
 
-- Panel administrativo web con métricas de ventas, stock y comportamiento del bot.
+*Respuesta 404*
+```json
+{ "success": false, "message": "Product not found" }
+```
 
-- Analítica en tiempo real de conversiones, ingresos y rendimiento del chatbot.
+### POST /api/products
+Crea un producto
 
-- Despliegue completo en la nube (Docker + Render / Railway / Vercel).
+*Body ejemplo*
+```json
+{
+  "nombre": "iPhone 15",
+  "precioventa_con_impuesto": "4500000",
+  "stock_minimo": 10
+}
+```
 
-**No incluye:**
+*Respuesta 201*
+```json
+{ "id_producto": 7, "nombre": "iPhone 15", "stock_minimo": 10 }
+```
 
-- Descuentos ni precios diferenciados para mayoristas.
+### PUT /api/products/:id
+Actualiza producto.
 
-- Multiusuario o CRM avanzado (versión inicial enfocada en automatización de venta).
+### DELETE /api/products/:id
+Elimina producto.
 
-- Aplicación móvil nativa (la interfaz es web y WhatsApp).
+## **5. ORDERS API**
 
-## **4. Arquitectura técnica**
+### GET /api/orders
+Obtiene todos los pedidos registrados.
 
-| Componente |	Tecnología / Herramienta |	Función principal |
-|-----------|----------------------------|--------------------|
-| Frontend  | (UI + Dashboard)	React + Vite + Tailwind + Recharts |	Landing y panel administrativo |
-| Backend API	| Node.js (Express)	     | Lógica del negocio, endpoints y conexión a BD |
-| Base de datos	| PostgreSQL | Gestión de productos, pedidos y stock |
-| Chatbot / Automatización |	n8n + WhatsApp Cloud API + IA (Claude Haiku / GPT-4-mini) |	Interacción automática con clientes |
-| Pagos	| Stripe / PayU / MercadoPago |	Procesamiento seguro y verificación automática |
-| Infraestructura	| Docker + Render / Railway / Vercel |	Contenedores y despliegue en la nube |
-| Autenticación	| JWT + bcrypt |	Acceso seguro al panel administrativo |
+### GET /api/orders/:id
+Detalle de un pedido.
 
-## **5. Flujo general del sistema**
+### POST /api/orders
+Crea un pedido.
 
-1. Cliente inicia conversación (WhatsApp o web).
+*Body ejemplo*
+```json
+{
+  "client_name": "Luis Pérez",
+  "product_id": 5,
+  "quantity": 2
+}
+```
 
-2. El asistente virtual (IA) interpreta la intención y muestra el catálogo.
+*Respuesta 201*
+```json
+{
+  "id": 20,
+  "status": "pending_payment"
+}
+```
 
-3. El cliente selecciona producto y cantidad.
+### PUT /api/orders/:id
+Actualiza un pedido.
 
-4. El bot genera un pedido y envía link de pago.
+### DELETE /api/orders/:id
+Elimina un pedido.
 
-5. Al confirmarse el pago, el backend actualiza stock y registra la venta.
+## **6. PAYMENTS API**
 
-6. El cliente recibe confirmación automática.
+### GET /api/payments
+Obtiene todos los registros de pagos.
 
-7. El panel administrativo muestra las métricas y ventas en tiempo real.
+*Respuesta ejemplo*
+```json
+[
+  {
+    "id": 1,
+    "order_id": 10,
+    "gateway": "Stripe",
+    "confirmation_code": "pi_82js72",
+    "status": "approved"
+  }
+]
+```
 
-## **6. Roles y responsabilidades**
-| Rol |	Integrante |	Responsabilidades |
-|-----|------------|--------------------|
-| Líder Técnico + Backend Developer |	Jose Morales |	Arquitectura del sistema, desarrollo del backend, integración con n8n, configuración de IA y despliegue. |
-| Frontend Developer |	Juan Lozano |	Desarrollo del panel administrativo, landing page, dashboard de métricas y conexión con la API. |
-| Project Manager (Gestor del Proyecto) |	Gerardo Martínez |	Planificación, seguimiento del cronograma, control de calidad, gestión del tablero Trello y documentación de avances. |
+### GET /api/payments/:id
+Obtiene un pago por ID
 
-## **7. Cronograma de desarrollo (8 semanas)**
+### POST /api/payments
+Registra un nuevo pago.
 
-| Semana |	Objetivo |	Responsable(s) |	Entregables |
-|--------|-----------|-----------------|--------------|
-| 1 |	Configuración del entorno, Docker, DB y conexión WhatsApp Cloud API |	Jose Morales |	Entorno funcional, repositorio y estructura base. |
-| 2	| Chatbot básico con IA (flujo conversacional) |	Jose Morales |	Bot activo en WhatsApp con IA funcional. |
-| 3	| Backend API CRUD de productos y pedidos |	Jose Morales |	Endpoints REST y base de datos conectada. |
-| 4 |	Frontend inicial (Landing + Login admin) |	Juan Lozano |	Interfaz conectada con backend. |
-| 5	| Integración de pagos automáticos |	Jose Morales |	Flujo de pago completo y stock actualizado. |
-| 6 |	Panel de métricas y analítica |	Juan Lozano |	Dashboard con datos en tiempo real. |
-| 7	| Pruebas, QA y corrección de errores |	Todo el equipo |	Sistema estable y documentado. |
-| 8	| Despliegue y documentación final |	Jose Morales + Gerardo Martínez |	Sistema en producción + guía técnica. |
+*Body ejemplo*
+```json
+{
+  "order_id": 10,
+  "gateway": "Stripe",
+  "confirmation_code": "pi_12345",
+  "status": "approved"
+}
+```
 
-## **8. Organización y gestión**
-### **Herramientas utilizadas:**
-| Categoría |	Herramienta |	Uso |
-|-----------|-------------|-----|
-| Gestión de proyecto |	Trello |	Control de tareas, sprints y entregas |
-| Control de versiones |	GitHub |	Código fuente y documentación |
-| Comunicación |	WhatsApp / Google Meet |	Reuniones y coordinación semanal |
-| Documentación |	Google Docs / Notion |	Registro de avances y decisiones |
-| Diseño UI |	Figma |	Prototipos visuales y estructura de panel |
-| Automatización |	n8n |	Flujos conversacionales y conexión con APIs |
-| Despliegue |	Render / Railway / Vercel |	Entornos productivos |
+*Respuesta 201*
+```json
+{
+  "id": 33,
+  "status": "approved"
+}
+```
 
-## **9. Metodología de trabajo**
+### PUT /api/payments/:id
+Actualiza información del pago.
 
-- Se trabajará bajo un enfoque ágil semanal (Sprints de 1 semana).
+### DELETE /api/payments/:id
+Elimina un pago.
 
-- Cada lunes se asignan tareas → cada viernes se revisan avances.
+## **7. Integración con n8n**
+Flujos actuales:
+1. WhatsApp -> Webhook -> IA -> API Orders
+2. Bot genera link de pago
+3. Pasarela confirma -> API Payments
+4. API actualiza stock y analítica
+5. Bot notifica al cliente
 
-- El Project Manager mantiene actualizado el tablero Trello.
+Diagrama simplificado:
+```markdown
+Cliente → WhatsApp → n8n → IA  
+                       ↓  
+                 Backend API  
+                 ↓           ↓
+             PostgreSQL   Pasarela de pagos
+```
 
-- Toda la comunicación técnica se centraliza en Trello y GitHub.
+## **8. Estructura del Backend**
+```css
+backend/
+│── src/
+│   ├── controllers/
+│   ├── services/
+│   ├── routes/
+│   ├── db/
+│   ├── swagger/
+│   ├── server.cjs
+│
+└── docs/
+    └── readme.md
+```
 
-- La definición de “listo” para cada tarea incluye:
+## **9. Swagger UI**
+Disponible en:
+```bash
+GET /api-docs
+```
+Permite explorar la API Y probar endpoints
 
-> Código probado, documentado y revisado por otro integrante.
+## **10. Buenas prácticas del proyecto**
+* Commits semanales obligatorios
+* Ramas por funcionalidad (`feature/_`)
+* Pull requests con revisión
+* Testing básico en controladores
+* Logs centralizados
+* Documentación actualizada por sprint
 
-## **10. Fases futuras (Post-MVP)**
-
-Una vez lanzada la primera versión (MVP), se proyectan las siguientes mejoras:
-
-- Facturación electrónica integrada.
-
-- Sistema de usuarios y perfiles (clientes frecuentes).
-
-- Implementación de recomendaciones de producto basadas en IA.
-
-- Integración con canales adicionales (Instagram / Web Chat).
-
-## **11. Entregable final esperado**
-
-Una plataforma totalmente automatizada de ventas con:
-
-- Chatbot inteligente funcional.
-
-- Base de datos sincronizada y gestionada por API.
-
-- Flujo completo de compra con pagos verificados.
-
-Panel administrativo operativo en producción.
-
-Documentación técnica y de usuario entregada.
+## **11. Próximos pasos del equipo**
+* Implementar autenticación JWT
+* Añadir estados avanzados de pedido
+* Historico de inventario
+* Dashboard versión 2.0
