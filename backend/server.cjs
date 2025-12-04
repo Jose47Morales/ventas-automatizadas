@@ -4,7 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const { Pool } = require('pg');
-const swagger = require('./src/swagger/swagger');
+const swagger = require('./src/swagger/swagger.cjs');
 
 const app = express();
 app.use(cors());
@@ -71,7 +71,8 @@ app.post('/webhook/whatsapp-webhook', async (req, res) => {
 });
 
 // Documentación Swagger
-app.use('/api-docs', swagger.serve, swagger.setup);
+const swaggerDocument = require('./src/swagger/swagger.json');
+app.use('/api-docs', swagger.swaggerUi.serve, swagger.swaggerUi.setup(swaggerDocument));
 
 // Endpoints para products
 const productsRouter = require('./src/routes/products.routes.cjs');
