@@ -8,6 +8,7 @@ const swaggerPath = path.join(__dirname, "swagger.yaml");
 // Carga YAML
 const swaggerDocument = yaml.load(fs.readFileSync(swaggerPath, "utf8"));
 
+console.log("Swagger cargado correctamente desde", swaggerPath);
 // Exporta middleware listo para usar
 module.exports = {
   swaggerUi,
