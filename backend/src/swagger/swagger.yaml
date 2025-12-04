@@ -5,8 +5,8 @@ info:
   description: API REST para gestión de productos, órdenes, pagos y analíticas.
 
 servers:
-  - url: http://https://ventas-backend-gyyx.onrender.com/api
-    description:  Servidor de producción
+  - url: https://ventas-backend-gyyx.onrender.com/api
+    description: Servidor de producción
 
 paths:
   ############################################################
@@ -288,7 +288,7 @@ paths:
         200:
           description: Lista filtrada de métricas
           content:
-            application/json:
+            application/json':
               schema:
                 type: array
                 items:
@@ -298,9 +298,6 @@ paths:
 # COMPONENTS
 ############################################################
 components:
-  ############################################################
-  # PARAMETERS
-  ############################################################
   parameters:
     ProductId:
       name: id
@@ -308,12 +305,14 @@ components:
       required: true
       schema:
         type: integer
+
     OrderId:
       name: id
       in: path
       required: true
       schema:
         type: integer
+
     PaymentId:
       name: id
       in: path
@@ -321,13 +320,7 @@ components:
       schema:
         type: integer
 
-  ############################################################
-  # SCHEMAS
-  ############################################################
   schemas:
-    ########################################################
-    # PRODUCTS
-    ########################################################
     Product:
       type: object
       properties:
@@ -355,9 +348,6 @@ components:
         stock:
           type: integer
 
-    ########################################################
-    # ORDERS
-    ########################################################
     Order:
       type: object
       properties:
@@ -396,9 +386,6 @@ components:
         payment_status:
           type: string
 
-    ########################################################
-    # PAYMENTS
-    ########################################################
     Payment:
       type: object
       properties:
@@ -429,9 +416,6 @@ components:
         status:
           type: string
 
-    ########################################################
-    # ANALYTICS
-    ########################################################
     Metric:
       type: object
       properties:
@@ -453,11 +437,7 @@ components:
       properties:
         metric_type:
           type: string
-          example: message_received
         value:
           type: number
         metadata:
           type: object
-          example:
-            source: "whatsapp"
-            campaign: "spring_sale"
