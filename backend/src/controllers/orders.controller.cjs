@@ -1,12 +1,21 @@
 const ordersService = require("../services/orders.service.cjs");
+const sessionService = require("../services/session.service.cjs");
+const logService = require("../services/log.service.cjs");
 
 module.exports = {
     getOrders: async (req, res) => {
         try {
             const orders = await ordersService.getAllOrders();
-            res.json(orders);
+
+            return res.json({
+                success: true,
+                count: orders.length,
+                data: orders
+            });
+
         } catch (error) {
-            res.status(500).json({ success: false, error: error.message });
+            console.error('Error fetching orders:', error);
+            return res.status(500).json({ success: false, error: error.message });
         }
     },
 
@@ -14,18 +23,51 @@ module.exports = {
         try {
             const { id } = req.params;
             const order = await ordersService.getOrderById(id);
-            if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
-            res.json(order);
+
+            if (!order) {
+                return res.status(404).json({ success: false, message: 'Order not found' });
+            }
+
+            return res.json({ success: true, data: order });
+
         } catch (error) {
-            res.status(500).json({ success: false, error: error.message }); 
+            console.error('Error fetching order:', error);
+            return res.status(500).json({ success: false, error: error.message }); 
         }
     },
 
     createOrder: async (req, res) => {
         try {
-            const order = await ordersService.createOrder(req.body);
-            res.status(201).json(order);
+            const body = req.body;
+
+            if (!body.customer || !body.items || !Array.isArray(body.items)) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Invalid order data' 
+                });
+            }
+
+            const newOrder = await ordersService.createOrder(body);
+
+            try {
+                await logService.saveLog({
+                    type: 'order_created',
+                    messageId: newOrder?.id,
+                    phone: body.customer?.phone || null,
+                    data: newOrder,
+                });
+            } catch (logError) {
+                console.error('Error saving log:', logError.message);
+            }
+
+            return res.status(201).json({ 
+                success: true, 
+                message: 'Order created successfully',
+                data: newOrder 
+            });
+
         } catch (error) {
+            console.error('Error creating order:', error);
             res.status(500).json({ success: false, error: error.message });
         }
     },  
@@ -33,22 +75,47 @@ module.exports = {
     updateOrder: async (req, res) => {
         try {
             const { id } = req.params;
-            const order = await ordersService.updateOrder(id, req.body);
-            if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
-            res.json(order);
+            const updated = await ordersService.updateOrder(id, req.body);
+            
+            if (!updated) {
+                return res.status(404).json({ 
+                    success: false, 
+                    message: 'Order not found' 
+                });
+            }
+
+            return res.json({ 
+                success: true, 
+                message: "Order updated successfully",
+                data: updated 
+            });
+
         } catch (error) {
-            res.status(500).json({ success: false, error: error.message });
+            console.error('Error updating order:', error);
+            return res.status(500).json({ success: false, error: error.message });
         }
     },
 
     deleteOrder: async (req, res) => {
         try {
             const { id } = req.params;  
-            const order = await ordersService.deleteOrder(id);
-            if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
-            res.json({ success: true, message: 'Order deleted successfully' });
+            const deleted = await ordersService.deleteOrder(id);
+
+            if (!deleted) {
+                return res.status(404).json({ 
+                    success: false, 
+                    message: 'Order not found' 
+                });
+            }
+
+            return res.json({ 
+                success: true, 
+                message: 'Order deleted successfully' 
+            });
+            
         } catch (error) {
-            res.status(500).json({ success: false, error: error.message });
+            console.error('Error deleting order:', error);
+            return res.status(500).json({ success: false, error: error.message });
         }
     }
 };
