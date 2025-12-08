@@ -1,4 +1,5 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import type { ReactNode } from 'react';
 import {
   Box,
   Flex,
@@ -12,15 +13,24 @@ import {
   Icon,
   IconButton,
   Badge,
+  Button,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem as MenuItemChakra,
+  MenuDivider,
 } from '@chakra-ui/react';
-import { SearchIcon, BellIcon } from '@chakra-ui/icons';
+import { SearchIcon, BellIcon, ChevronDownIcon } from '@chakra-ui/icons';
 import {
   FiTrendingUp,
   FiPackage,
   FiShoppingCart,
   FiDollarSign,
   FiBarChart2,
+  FiLogOut,
+  FiUser,
 } from 'react-icons/fi';
+import { useAuth } from '../context/AuthContext';
 
 // Componente MenuItem: Un item del menú lateral
 interface MenuItemProps {
@@ -31,7 +41,7 @@ interface MenuItemProps {
   onClick: () => void;
 }
 
-function MenuItem({ icon, label, path, isActive, onClick }: MenuItemProps) {
+function MenuItem({ icon, label, isActive, onClick }: MenuItemProps) {
   return (
     <Flex
       align="center"
@@ -58,10 +68,17 @@ function MenuItem({ icon, label, path, isActive, onClick }: MenuItemProps) {
 function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   // Función para verificar si una ruta está activa
   const isActive = (path: string) => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
+  };
+
+  // Función para cerrar sesión
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
   // Items del menú
@@ -74,7 +91,7 @@ function Layout() {
   ];
 
   return (
-    <Flex h="100vh" bg="gray.50">
+    <Flex h="100vh" bg="gray.50" overflow="hidden">
       {/* SIDEBAR - Menú lateral */}
       <Box
         w="250px"
@@ -82,6 +99,7 @@ function Layout() {
         borderRight="1px"
         borderColor="gray.200"
         p={4}
+        flexShrink={0}
       >
         {/* Logo */}
         <Flex align="center" gap={2} mb={8}>
@@ -102,7 +120,7 @@ function Layout() {
             </Icon>
           </Box>
           <Text fontSize="xl" fontWeight="bold" color="gray.800">
-            MayorPanel
+            Bodega Mayorista
           </Text>
         </Flex>
 
@@ -129,7 +147,7 @@ function Layout() {
       </Box>
 
       {/* CONTENIDO PRINCIPAL */}
-      <Flex flex={1} direction="column" overflow="hidden">
+      <Flex flex={1} direction="column" overflow="hidden" minW={0}>
         {/* HEADER - Barra superior */}
         <Flex
           h="70px"
@@ -139,6 +157,7 @@ function Layout() {
           px={6}
           align="center"
           justify="space-between"
+          flexShrink={0}
         >
           {/* Barra de búsqueda */}
           <InputGroup maxW="400px">
@@ -174,25 +193,58 @@ function Layout() {
               </Badge>
             </Box>
 
-            {/* Usuario */}
-            <HStack spacing={3} pl={3} borderLeft="1px" borderColor="gray.200">
-              <Avatar size="sm" name="Admin" bg="green.500" />
-              <Box>
-                <Text fontSize="sm" fontWeight="medium" color="gray.700">
-                  Admin
-                </Text>
-                <Text fontSize="xs" color="gray.500">
-                  Administrador
-                </Text>
-              </Box>
-            </HStack>
+            {/* Usuario con menú desplegable */}
+            <Menu>
+              <MenuButton
+                as={Button}
+                variant="ghost"
+                rightIcon={<ChevronDownIcon />}
+                pl={3}
+                borderLeft="1px"
+                borderColor="gray.200"
+              >
+                <HStack spacing={3}>
+                  <Avatar size="sm" name={user?.name || 'Admin'} bg="green.500" />
+                  <Box textAlign="left">
+                    <Text fontSize="sm" fontWeight="medium" color="gray.700">
+                      {user?.name || 'Admin'}
+                    </Text>
+                    <Text fontSize="xs" color="gray.500">
+                      {user?.role || 'Administrador'}
+                    </Text>
+                  </Box>
+                </HStack>
+              </MenuButton>
+              <MenuList>
+    <MenuItemChakra>
+                  <HStack spacing={2}>
+                    <Icon as={FiUser} />
+                    <Text>Mi Perfil</Text>
+                  </HStack>
+                </MenuItemChakra>
+                <MenuDivider />
+                <MenuItemChakra onClick={handleLogout}>
+                  <HStack spacing={2}>
+                    <Icon as={FiLogOut} color="red.500" />
+                    <Text color="red.500">Cerrar Sesión</Text>
+                  </HStack>
+                </MenuItemChakra>
+              </MenuList>
+            </Menu>
           </HStack>
         </Flex>
 
         {/* ÁREA DE CONTENIDO - Aquí se renderizan las páginas */}
-        <Box flex={1} overflow="auto" p={6}>
-          {/* Outlet es donde se muestran las páginas hijas (Dashboard, Products, etc.) */}
-          <Outlet />
+        <Box 
+          flex={1} 
+          overflow="auto" 
+          bg="gray.50"
+          p={8}
+        >
+          <Box maxW="1400px" mx="auto" w="full">
+            {/* Outlet es donde se muestran las páginas hijas (Dashboard, Products, etc.) */}
+            <Outlet />
+          </Box>
         </Box>
       </Flex>
     </Flex>

@@ -1,24 +1,65 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { ChakraProvider, Box } from '@chakra-ui/react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ChakraProvider } from '@chakra-ui/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import Layout from './components/Layout.tsx';  // ← DESCOMENTA
+import { AuthProvider, useAuth } from './context/AuthContext';
+import Layout from './components/Layout';
 import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Products from './pages/Products';
+import Orders from './pages/Orders';
+import Payments from './pages/Payments';
+import Analytics from './pages/Analytics';
 
 const queryClient = new QueryClient();
+
+// Componente para proteger rutas privadas
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div>Cargando...</div>;
+  }
+
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+}
+
+function AppRoutes() {
+  return (
+    <Routes>
+      {/* Ruta de Login */}
+      <Route path="/login" element={<Login />} />
+      
+      {/* Rutas protegidas */}
+      <Route
+        path="/*"
+        element={
+          <PrivateRoute>
+            <Layout />
+          </PrivateRoute>
+        }
+      >
+        <Route index element={<Dashboard />} />
+        <Route path="products" element={<Products />} />
+        <Route path="orders" element={<Orders />} />
+        <Route path="payments" element={<Payments />} />
+        <Route path="analytics" element={<Analytics />} />
+      </Route>
+
+      {/* Redirigir cualquier ruta no encontrada al login */}
+      <Route path="*" element={<Navigate to="/login" />} />
+    </Routes>
+  );
+}
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ChakraProvider>
-        <Router>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/*" element={<Layout />}>
-              {/* Aquí irán las rutas internas */}
-              <Route index element={<div style={{padding: '20px'}}>Dashboard (próximamente)</div>} />
-            </Route>
-          </Routes>
-        </Router>
+        <AuthProvider>
+          <Router>
+            <AppRoutes />
+          </Router>
+        </AuthProvider>
       </ChakraProvider>
     </QueryClientProvider>
   );

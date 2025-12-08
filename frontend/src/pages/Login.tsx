@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -13,41 +14,41 @@ import {
   InputLeftElement,
   Icon,
   useToast,
+  Alert,
+  AlertIcon,
 } from '@chakra-ui/react';
 import { EmailIcon, LockIcon } from '@chakra-ui/icons';
+import { useAuth } from '../context/AuthContext';
 
 function Login() {
-  // Estados para guardar los valores del formulario
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  // Hook de Chakra para mostrar notificaciones
   const toast = useToast();
+  const navigate = useNavigate();
+  const { login } = useAuth();
 
-  // Función que se ejecuta al hacer clic en "Ingresar al Panel"
-  const handleLogin = () => {
-    // Validación básica: verificar que los campos no estén vacíos
+  const handleLogin = async () => {
+    setError('');
+
     if (!email || !password) {
-      toast({
-        title: 'Campos incompletos',
-        description: 'Por favor ingresa tu correo y contraseña',
-        status: 'warning',
-        duration: 3000,
-        isClosable: true,
-      });
+      setError('Por favor ingresa tu correo y contraseña');
       return;
     }
 
-    // Simular proceso de login (más adelante conectarás con el backend)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Por favor ingresa un correo electrónico válido');
+      return;
+    }
+
     setIsLoading(true);
 
-    // Simulamos una petición al servidor (2 segundos)
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await login(email, password);
 
-      // Aquí validarías con el backend real
-      // Por ahora, aceptamos cualquier correo/contraseña
       toast({
         title: 'Inicio de sesión exitoso',
         description: 'Bienvenido al panel administrativo',
@@ -56,22 +57,46 @@ function Login() {
         isClosable: true,
       });
 
-      // Aquí redirigirías al dashboard
-      console.log('Login exitoso:', { email, password });
-    }, 2000);
+      navigate('/');
+    } catch (err: any) {
+      console.error('Error en login:', err);
+      
+      const errorMessage = err.response?.data?.message || 
+                          err.message || 
+                          'Credenciales incorrectas. Verifica tu correo y contraseña.';
+      
+      setError(errorMessage);
+      
+      toast({
+        title: 'Error al iniciar sesión',
+        description: errorMessage,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleLogin();
+    }
   };
 
   return (
     <Box
       minH="100vh"
+      w="100vw"
       bg="gray.50"
       display="flex"
       alignItems="center"
       justifyContent="center"
+      p={4}
     >
-      <Container maxW="md">
+      <Container maxW="md" w="full">
         <VStack spacing={8} align="stretch">
-          {/* Encabezado */}
           <VStack spacing={2}>
             <Box
               bg="green.500"
@@ -87,10 +112,9 @@ function Login() {
               </Icon>
             </Box>
             <Heading size="lg">Panel Administrativo</Heading>
-            <Text color="gray.600">Bodega Mayorista</Text>
+            <Text color="gray.600">Tienda Mayorista</Text>
           </VStack>
 
-          {/* Formulario */}
           <Box bg="white" p={8} borderRadius="lg" boxShadow="md">
             <VStack spacing={6} align="stretch">
               <VStack spacing={1} align="start">
@@ -100,7 +124,13 @@ function Login() {
                 </Text>
               </VStack>
 
-              {/* Campo de Correo Electrónico */}
+              {error && (
+                <Alert status="error" borderRadius="md">
+                  <AlertIcon />
+                  {error}
+                </Alert>
+              )}
+
               <FormControl>
                 <FormLabel>Correo electrónico</FormLabel>
                 <InputGroup>
@@ -109,14 +139,15 @@ function Login() {
                   </InputLeftElement>
                   <Input
                     type="email"
-                    placeholder="admin@bodega.com"
+                    placeholder="admin@tienda.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    isDisabled={isLoading}
                   />
                 </InputGroup>
               </FormControl>
 
-              {/* Campo de Contraseña */}
               <FormControl>
                 <FormLabel>Contraseña</FormLabel>
                 <InputGroup>
@@ -125,14 +156,15 @@ function Login() {
                   </InputLeftElement>
                   <Input
                     type="password"
-                    placeholder="********"
+                    placeholder="········"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    isDisabled={isLoading}
                   />
                 </InputGroup>
               </FormControl>
 
-              {/* Botón de Login */}
               <Button
                 colorScheme="green"
                 size="lg"
@@ -144,9 +176,8 @@ function Login() {
                 Ingresar al Panel
               </Button>
 
-              {/* Texto de Demo */}
               <Text fontSize="sm" color="gray.500" textAlign="center">
-                Demo: usa cualquier correo y contraseña
+                Usa las credenciales proporcionadas por el administrador
               </Text>
             </VStack>
           </Box>
