@@ -6,6 +6,6 @@ const chatSessionsCtrl = require("../controllers/chatSessions.controller.cjs");
 const validatePhone = require("../validators/validatePhone.cjs");
 
 router.post("/", validatePhone, chatSessionsCtrl.saveChatSession);
-router.get("/:phone", validatePhone, chatSessionsCtrl.getChatSession);
+router.get("/:user_phone", validatePhone, chatSessionsCtrl.getChatSession);
 
 module.exports = router;
