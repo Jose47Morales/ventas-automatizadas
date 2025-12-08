@@ -18,7 +18,7 @@ module.exports = {
   },
 
   getChatSession: async (req, res) => {
-    const { user_phone } = req.params;
+    const user_phone = req.validatedPhone;
 
     if (!user_phone) {
       return res.status(400).json({ success: false, error: "Falta el número de usuario" });
