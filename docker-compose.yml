@@ -62,7 +62,7 @@ services:
       - GENERIC_TIMEZONE=America/Bogota
       - N8N_HOST=n8n.local
       - N8N_PORT=5678
-      - WEBHOOK_URL=https://kitchen-aluminum-boutique-respondent.trycloudflare.com
+      - WEBHOOK_URL=https://displays-airfare-prescribed-smaller.trycloudflare.com
       - N8N_TRUST_PROXY=${N8N_TRUST_PROXY}
       - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
       - N8N_RUNNERS_ENABLED=true

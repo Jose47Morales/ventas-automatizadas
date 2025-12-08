@@ -12,23 +12,39 @@ module.exports = {
     },
 
     searchProducts: async (search) => {
+        if (!search || search.trim().length < 2) return [];
+
         // Normalizamos
-        const searchPattern = `%${search}%`;
+        const clean = search
+            .normalize('NFD') // Descomponer caracteres acentuados
+            .replace(/[\u0300-\u036f]/g, '') // Eliminar marcas de acentuación
+            .replace(/[^\w\s]/gi, '') // Eliminar caracteres especiales
+            .trim()
+            .toLowerCase();
+
+        const keywords = clean.split(/\s+/);
+
+        const conditions = keywords
+            .map((_, i) => `
+                (unaccent(lower(nombre)) ILIKE unaccent($${i + 1})
+                OR unaccent(lower(referencia)) ILIKE unaccent($${i + 1})
+                OR unaccent(lower(codigo_barras)) ILIKE unaccent($${i + 1})
+                OR unaccent(lower(categoria)) ILIKE unaccent($${i + 1})
+                OR unaccent(lower(marca)) ILIKE unaccent($${i + 1}))
+            `)
+            .join(" AND ");
+
+        const params = keywords.map(kw => `%${kw}%`);
 
         const query = `
-            SELECT * 
+            SELECT id_producto, nombre, precioventa_con_impuesto AS precio, existencias, url_imagen
             FROM products
-            WHERE 
-                nombre ILIKE $1 OR 
-                referencia ILIKE $1 OR
-                codigo_barras ILIKE $1 OR
-                categoria ILIKE $1 OR
-                marca ILIKE $1
+            WHERE ${conditions}
             ORDER BY nombre ASC
             LIMIT 10;
         `;
-
-        const result = await pool.query(query, [searchPattern]);
+        
+        const result = await pool.query(query, params);
         return result.rows;
     },
 
