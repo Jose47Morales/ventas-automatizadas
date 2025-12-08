@@ -1,4 +1,9 @@
 module.exports = (req, res, next) => {
+    
+    console.log("BODY:", req.body);
+    console.log("PARAMS:", req.params);
+    console.log("QUERY:", req.query);
+    
     const phone =
         req.body.phone ||
         req.body.client_phone ||
@@ -12,7 +17,7 @@ module.exports = (req, res, next) => {
         });
     }
 
-    const cleaned = String(phone).trim();
+    const cleaned = String(phone).replace(/\s+/g, "").trim();
 
     // Validación básica: solo dígitos o + al inicio
     const phoneRegex = /^\+?\d{10,15}$/;
