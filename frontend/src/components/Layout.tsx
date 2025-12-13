@@ -104,7 +104,7 @@ function Layout() {
         {/* Logo */}
         <Flex align="center" gap={2} mb={8}>
           <Box
-            bg="green.500"
+            bg="purple.500"
             w={10}
             h={10}
             borderRadius="md"
