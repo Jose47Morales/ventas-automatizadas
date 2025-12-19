@@ -24,23 +24,36 @@ module.exports = {
 
         const keywords = clean.split(/\s+/);
 
-        const conditions = keywords
-            .map((_, i) => `
-                (unaccent(lower(nombre)) ILIKE unaccent($${i + 1})
-                OR unaccent(lower(referencia)) ILIKE unaccent($${i + 1})
-                OR unaccent(lower(codigo_barras)) ILIKE unaccent($${i + 1})
-                OR unaccent(lower(categoria)) ILIKE unaccent($${i + 1})
-                OR unaccent(lower(marca)) ILIKE unaccent($${i + 1}))
-            `)
-            .join(" OR ");
+        const params = [];
+        let idx = 1;
 
-        const params = keywords.map(kw => `%${kw}%`);
+        const scoreParts = [];
+
+        scoreParts.push(`
+            CASE
+                WHEN unaccent(lower(nombre)) ILIKE unaccent($${idx}) THEN 100
+                WHEN unaccent(lower(referencia)) ILIKE unaccent($${idx}) THEN 80
+                WHEN unaccent(lower(categoria)) ILIKE unaccent($${idx}) THEN 60
+                WHEN unaccent(lower(marca)) ILIKE unaccent($${idx}) THEN 50
+                ELSE 0
+            END
+        `);
+        params.push(`%${clean}%`);
+        idx++;
+
+        const score = scoreParts.join(' + ');
 
         const query = `
-            SELECT id_producto, nombre, precioventa_con_impuesto AS precio, existencias, url_imagen
+            SELECT 
+                id_producto, 
+                nombre, 
+                precioventa_con_impuesto AS precio, 
+                existencias, 
+                url_imagen,
+                (${score}) AS relevancia
             FROM products
-            WHERE ${conditions}
-            ORDER BY nombre ASC
+            WHERE (${score}) > 0
+            ORDER BY relevancia DESC, nombre ASC
             LIMIT 10;
         `;
         
