@@ -38,29 +38,14 @@ module.exports = {
 
     createOrder: async (req, res) => {
         try {
-            const body = req.body;
-
-            if (
-                !body.customer || 
-                !body.customer.name ||
-                !body.customer.phone ||
-                !Array.isArray(body.items) ||
-                body.items.length === 0 ||
-                !body.items[0].product_id ||
-                !body.items[0].quantity
-                ) {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: 'Invalid order data' 
-                });
-            }
+            const { customer, items } = req.body;
 
             const payload = {
-                client_name: body.customer.name,
-                client_phone: body.customer.phone,
-                product_id: body.items[0].product_id,
-                quantity: body.items[0].quantity
-            };
+                client_name: customer.name,
+                client_phone: customer.phone,
+                product_id: items[0].product_id,
+                quantity: items[0].quantity
+            }
 
             const newOrder = await ordersService.createOrder(payload);
 
