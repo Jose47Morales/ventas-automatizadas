@@ -1,5 +1,4 @@
 const ordersService = require("../services/orders.service.cjs");
-const sessionService = require("../services/session.service.cjs");
 const logService = require("../services/log.service.cjs");
 
 module.exports = {
@@ -40,12 +39,23 @@ module.exports = {
         try {
             const { customer, items } = req.body;
 
+            if (
+                !customer?.name ||
+                !customer?.phone ||
+                !Array.isArray(items) ||
+                items.length === 0
+            ) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Invalid order data' 
+                });
+            }
+
             const payload = {
                 client_name: customer.name,
                 client_phone: customer.phone,
-                product_id: items[0].product_id,
-                quantity: items[0].quantity
-            }
+                items
+            };
 
             const newOrder = await ordersService.createOrder(payload);
 
@@ -116,6 +126,37 @@ module.exports = {
         } catch (error) {
             console.error('Error deleting order:', error);
             return res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    addItemToOrder: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const item = await ordersService.addItemToOrder(id, req.body);
+
+            try {
+                await logService.saveLog({
+                    type: 'order_item_added',
+                    messageId: id,
+                    phone: req.body.customer?.phone || null,
+                    data: item,
+                });
+            } catch (logError) {
+                console.error('Error saving log:', logError.message);
+            }
+
+            return res.status(201).json({ 
+                success: true, 
+                message: 'Item added to order successfully',
+                data: item 
+            });
+
+        } catch (error) {
+            console.error('Error adding item to order:', error);
+            return res.status(400).json({ 
+                success: false, 
+                error: error.message 
+            });
         }
     }
 };
