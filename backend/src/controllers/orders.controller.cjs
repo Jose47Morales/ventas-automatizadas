@@ -40,14 +40,27 @@ module.exports = {
         try {
             const body = req.body;
 
-            if (!body.customer || !body.items || !Array.isArray(body.items)) {
+            if (
+                !body.customer || 
+                !body.customer.name ||
+                !body.customer.phone ||
+                !Array.isArray(body.items) ||
+                !body.items.length === 0
+                ) {
                 return res.status(400).json({ 
                     success: false, 
                     message: 'Invalid order data' 
                 });
             }
 
-            const newOrder = await ordersService.createOrder(body);
+            const payload = {
+                client_name: body.customer.name,
+                client_phone: body.customer.phone,
+                product_id: body.items[0].product_id,
+                quantity: body.items[0].quantity
+            };
+
+            const newOrder = await ordersService.createOrder(payload);
 
             try {
                 await logService.saveLog({
