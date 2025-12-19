@@ -45,7 +45,9 @@ module.exports = {
                 !body.customer.name ||
                 !body.customer.phone ||
                 !Array.isArray(body.items) ||
-                !body.items.length === 0
+                body.items.length === 0 ||
+                !body.items[0].product_id ||
+                !body.items[0].quantity
                 ) {
                 return res.status(400).json({ 
                     success: false, 
