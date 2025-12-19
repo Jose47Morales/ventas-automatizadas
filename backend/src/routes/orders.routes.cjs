@@ -17,6 +17,6 @@ router.put('/:id', validateId, validateSchema(updateOrderSchema), ordersCtrl.upd
 
 router.delete('/:id', validateId, ordersCtrl.deleteOrder);
 
-router.post('/:id/items', validateId, validateSchema(addOrderItemSchema), ordersCtrl.addOrderItem);
+router.post('/:id/items', validateId, validateSchema(addOrderItemSchema), ordersCtrl.addItemToOrder);
 
 module.exports = router;
