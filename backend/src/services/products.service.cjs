@@ -32,7 +32,7 @@ module.exports = {
                 OR unaccent(lower(categoria)) ILIKE unaccent($${i + 1})
                 OR unaccent(lower(marca)) ILIKE unaccent($${i + 1}))
             `)
-            .join(" AND ");
+            .join(" OR ");
 
         const params = keywords.map(kw => `%${kw}%`);
 
