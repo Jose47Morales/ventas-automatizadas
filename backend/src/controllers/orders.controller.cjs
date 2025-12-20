@@ -51,11 +51,7 @@ module.exports = {
                 });
             }
 
-            const payload = {
-                client_name: customer.name,
-                client_phone: customer.phone,
-                items
-            };
+            const firstItem = items[0];
 
             const newOrder = await ordersService.createOrder(payload);
 

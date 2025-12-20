@@ -56,8 +56,8 @@ module.exports = {
             await client.query('BEGIN');
 
             const orderRes = await client.query(
-                `INSERT INTO orders (client_name, client_phone, total, payment_status)
-                VALUES ($1, $2, 0, 'pending')
+                `INSERT INTO orders (client_name, client_phone, payment_status)
+                VALUES ($1, $2, 'pending')
                 RETURNING *`,
                 [client_name, client_phone]
             );
