@@ -1,15 +1,33 @@
 module.exports = {
     createOrderSchema: {
         type: "object",
-        required: ["client_name", "client_phone", "product_id", "quantity"],
+        required: ["customer", "items"],
         properties: {
-            client_name: { type: "string", minLength: 3, maxLength: 80 },
-            client_phone: { 
-                type: "string", 
-                pattern: "^\\+?[1-9]\\d{7,14}$" 
+            customer: { 
+                type: "object", 
+                required: ["name", "phone"],
+                properties: {
+                    name: { type: "string", minLength: 3, maxLength: 80 },
+                    phone: { 
+                        type: "string", 
+                        pattern: "^\\+?[1-9]\\d{7,14}$" 
+                    }
+                },
+                additionalProperties: false
             },
-            product_id: { type: "integer", minimum: 1 },
-            quantity: { type: "integer", minimum: 1 },
+            items: {
+                type: "array",
+                minItems: 1,
+                items: {
+                    type: "object",
+                    required: ["product_id", "quantity"],
+                    properties: {
+                        product_id: { type: "integer", minimum: 1 },
+                        quantity: { type: "integer", minimum: 1 }
+                    },
+                    additionalProperties: false
+                }
+            }
         },
         additionalProperties: false,
     },

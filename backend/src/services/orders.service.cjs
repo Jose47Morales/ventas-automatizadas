@@ -1,43 +1,155 @@
 const { pool } = require("../database/db.cjs");
 
 module.exports = {
+
+    // Obtiene todos los pedidos
     getAllOrders: async () => {
-        try {
-            const result = await pool.query(
-                `SELECT o.*, p.nombre AS product_name 
-                FROM orders o
-                LEFT JOIN products p ON o.product_id = p.id_producto
-                ORDER BY o.id DESC`  
-            );
-            return result.rows;
-        } catch (error) {
-            throw new Error('Error fetching orders:' + error.message);
-        }
+        const query = `
+            SELECT
+                o.*,
+                json_agg(
+                    json_build_object(
+                        'product_id', oi.product_id,
+                        'product_name', p.nombre,
+                        'quantity', oi.quantity,
+                        'unit_price', oi.unit_price,
+                        'total', oi.total
+                    )
+                ) AS items
+            FROM orders o
+            LEFT JOIN order_items oi ON oi.order_id = o.id
+            LEFT JOIN products p ON p.id_producto = oi.product_id
+            GROUP BY o.id
+            ORDER BY o.id DESC;
+        `;
+        const result = await pool.query(query);
+        return result.rows;
     },
 
     getOrderById: async (id) => {
-        try {
-            const result = await pool.query(
-                `SELECT o.*, p.nombre AS product_name 
-                FROM orders o
-                LEFT JOIN products p ON o.product_id = p.id_producto
-                WHERE o.id = $1`,
-                [id]
-            );
-            return result.rows[0];
-        } catch (error) {
-            throw new Error('Error fetching order by ID:' + error.message);
-        }        
+        const query = `
+            SELECT
+                o.*,
+                json_agg(
+                    json_build_object(
+                        'product_id', oi.product_id,
+                        'product_name', p.nombre,
+                        'quantity', oi.quantity,
+                        'unit_price', oi.unit_price,
+                        'total', oi.total        
+                    )
+                ) AS items
+            FROM orders o
+            LEFT JOIN order_items oi ON oi.order_id = o.id
+            LEFT JOIN products p ON p.id_producto = oi.product_id
+            WHERE o.id = $1
+            GROUP BY o.id;
+        `;
+        const result = await pool.query(query, [id]);
+        return result.rows[0];
     },
 
-    createOrder: async ({ client_name, client_phone, product_id, quantity}) => {
+    createOrder: async ({ client_name, client_phone, items }) => {
         const client = await pool.connect();
+
         try {
             await client.query('BEGIN');
 
-            // Validación inicial
+            const orderRes = await client.query(
+                `INSERT INTO orders (client_name, client_phone, payment_status)
+                VALUES ($1, $2, 'pending')
+                RETURNING *`,
+                [client_name, client_phone]
+            );
+
+            const orderId = orderRes.rows[0].id;
+
+            for (const item of items) {
+                const qty = Number(item.quantity);
+                if (!qty || qty <= 0) throw new Error('Cantidad inválida');
+
+                const productRes = await client.query(
+                    `SELECT precioventa_con_impuesto
+                    FROM products
+                    WHERE id_producto = $1`,
+                    [item.product_id]
+                );
+
+                if (!productRes.rows.length) {
+                    throw new Error('Producto no encontrado');
+                }
+
+                const unit_price = Number(productRes.rows[0].precioventa_con_impuesto);
+
+                await client.query(
+                    `INSERT INTO order_items
+                    (order_id, product_id, quantity, unit_price)
+                    VALUES ($1, $2, $3, $4)`,
+                    [orderId, item.product_id, qty, unit_price]
+                );
+            }
+
+            await client.query(`
+                UPDATE orders
+                SET total = (
+                    SELECT COALESCE(SUM(total), 0)
+                    FROM order_items
+                    WHERE order_id = $1
+                )
+                WHERE id = $1
+            `, [orderId]);
+
+            await client.query('COMMIT');
+
+            return await module.exports.getOrderById(orderId);
+
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw new Error(error.message);
+        } finally {
+            client.release();
+        }
+    },
+
+
+    updatePaymentStatus: async (order_id, status) => {
+        const result = await pool.query(
+            `UPDATE orders
+            SET payment_status = $1
+            WHERE id = $2
+            RETURNING *`,
+            [status, order_id]
+        );
+        return result.rows[0];
+    },
+
+    deleteOrder: async (id) => {
+        const result = await pool.query(
+            `DELETE FROM orders WHERE id = $1 RETURNING *`, 
+            [id]
+        );
+        return result.rows[0];
+    },
+
+    addItemToOrder: async (order_id, { product_id, quantity }) => {
+        const client = await pool.connect();
+
+        try {
+            await client.query('BEGIN');
+
             const qty = Number(quantity);
             if (!qty || qty <= 0) throw new Error('Cantidad inválida');
+
+            const orderRes = await client.query(
+                `SELECT id
+                FROM orders
+                WHERE id = $1`,
+                [order_id]
+            );
+
+            if (!orderRes.rows.length) {
+                throw new Error('Orden no encontrada');
+            }
 
             const productRes = await client.query(
                 `SELECT precioventa_con_impuesto
@@ -46,70 +158,39 @@ module.exports = {
                 [product_id]
             );
 
-            if (productRes.rows.length === 0) {
+            if (!productRes.rows.length) {
                 throw new Error('Producto no encontrado');
             }
 
-            const price = parseFloat(productRes.rows[0].precioventa_con_impuesto);
-            const total = price * qty;
+            const unit_price = Number(productRes.rows[0].precioventa_con_impuesto);
 
-            const insert = await client.query(
-                `INSERT INTO orders 
-                (client_name, client_phone, product_id, quantity, total, payment_status) 
-                VALUES ($1, $2, $3, $4, $5, 'pending') 
+            const itemRes = await client.query(
+                `INSERT INTO order_items 
+                (order_id, product_id, quantity, unit_price)
+                VALUES ($1, $2, $3, $4)
                 RETURNING *`,
-                [client_name, client_phone, product_id, qty, total]
+                [order_id, product_id, qty, unit_price]
+            );
+
+            await client.query(`
+                UPDATE orders
+                SET total = (
+                    SELECT COALESCE(SUM(total), 0) 
+                    FROM order_items 
+                    WHERE order_id = $1
+                )
+                WHERE id = $1`, 
+                [order_id]
             );
 
             await client.query('COMMIT');
-            return insert.rows[0];
+            return itemRes.rows[0];
 
         } catch (error) {
             await client.query('ROLLBACK');
-            throw new Error('Error creating order:' + error.message);
+            throw new Error('Error adding item to order:' + error.message);
         } finally {
             client.release();
-        }
-    },
-
-    updateOrder: async (id, data) => {
-        const { client_name, client_phone, product_id, quantity, payment_status } = data;
-
-        try {
-            const result = await pool.query(
-            `UPDATE orders SET 
-                client_name = COALESCE($1, client_name),
-                client_phone = COALESCE($2, client_phone),
-                product_id = COALESCE($3, product_id),
-                quantity = COALESCE($4, quantity),
-                payment_status = COALESCE($5, payment_status)
-            WHERE id = $6 
-            RETURNING *`,
-            [
-                client_name || null, 
-                client_phone || null, 
-                product_id || null, 
-                quantity || null, 
-                payment_status || null, 
-                id
-            ]
-        );
-        return result.rows[0];
-
-    } catch (error) {
-        throw new Error('Error updating order:' + error.message);
-    }   
-},
-
-    deleteOrder: async (id) => {
-        try {
-            const result = await pool.query(
-                `DELETE FROM orders WHERE id = $1 RETURNING *`, 
-                [id]
-            );
-            return result.rows[0];
-        } catch (error) {
-            throw new Error('Error deleting order:' + error.message);
         }
     }
 };

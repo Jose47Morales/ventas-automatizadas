@@ -12,23 +12,52 @@ module.exports = {
     },
 
     searchProducts: async (search) => {
+        if (!search || search.trim().length < 2) return [];
+
         // Normalizamos
-        const searchPattern = `%${search}%`;
+        const clean = search
+            .normalize('NFD') // Descomponer caracteres acentuados
+            .replace(/[\u0300-\u036f]/g, '') // Eliminar marcas de acentuación
+            .replace(/[^\w\s]/gi, '') // Eliminar caracteres especiales
+            .trim()
+            .toLowerCase();
+
+        const keywords = clean.split(/\s+/);
+
+        const params = [];
+        let idx = 1;
+
+        const scoreParts = [];
+
+        scoreParts.push(`
+            CASE
+                WHEN unaccent(lower(nombre)) ILIKE unaccent($${idx}) THEN 100
+                WHEN unaccent(lower(referencia)) ILIKE unaccent($${idx}) THEN 80
+                WHEN unaccent(lower(categoria)) ILIKE unaccent($${idx}) THEN 60
+                WHEN unaccent(lower(marca)) ILIKE unaccent($${idx}) THEN 50
+                ELSE 0
+            END
+        `);
+        params.push(`%${clean}%`);
+        idx++;
+
+        const score = scoreParts.join(' + ');
 
         const query = `
-            SELECT * 
+            SELECT 
+                id_producto, 
+                nombre, 
+                precioventa_con_impuesto AS precio, 
+                existencias, 
+                url_imagen,
+                (${score}) AS relevancia
             FROM products
-            WHERE 
-                nombre ILIKE $1 OR 
-                referencia ILIKE $1 OR
-                codigo_barras ILIKE $1 OR
-                categoria ILIKE $1 OR
-                marca ILIKE $1
-            ORDER BY nombre ASC
+            WHERE (${score}) > 0
+            ORDER BY relevancia DESC, nombre ASC
             LIMIT 10;
         `;
-
-        const result = await pool.query(query, [searchPattern]);
+        
+        const result = await pool.query(query, params);
         return result.rows;
     },
 

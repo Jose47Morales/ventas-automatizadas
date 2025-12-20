@@ -1,5 +1,4 @@
 const ordersService = require("../services/orders.service.cjs");
-const sessionService = require("../services/session.service.cjs");
 const logService = require("../services/log.service.cjs");
 
 module.exports = {
@@ -38,22 +37,33 @@ module.exports = {
 
     createOrder: async (req, res) => {
         try {
-            const body = req.body;
+            const { customer, items } = req.body;
 
-            if (!body.customer || !body.items || !Array.isArray(body.items)) {
+            if (
+                !customer?.name ||
+                !customer?.phone ||
+                !Array.isArray(items) ||
+                items.length === 0
+            ) {
                 return res.status(400).json({ 
                     success: false, 
                     message: 'Invalid order data' 
                 });
             }
 
-            const newOrder = await ordersService.createOrder(body);
+            const payload = {
+                client_name: customer.name,
+                client_phone: customer.phone,
+                items
+            };
+
+            const newOrder = await ordersService.createOrder(payload);
 
             try {
                 await logService.saveLog({
                     type: 'order_created',
                     messageId: newOrder?.id,
-                    phone: body.customer?.phone || null,
+                    phone: req.body.customer?.phone || null,
                     data: newOrder,
                 });
             } catch (logError) {
@@ -116,6 +126,37 @@ module.exports = {
         } catch (error) {
             console.error('Error deleting order:', error);
             return res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    addItemToOrder: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const item = await ordersService.addItemToOrder(id, req.body);
+
+            try {
+                await logService.saveLog({
+                    type: 'order_item_added',
+                    messageId: id,
+                    phone: null,
+                    data: item,
+                });
+            } catch (logError) {
+                console.error('Error saving log:', logError.message);
+            }
+
+            return res.status(201).json({ 
+                success: true, 
+                message: 'Item added to order successfully',
+                data: item 
+            });
+
+        } catch (error) {
+            console.error('Error adding item to order:', error);
+            return res.status(400).json({ 
+                success: false, 
+                error: error.message 
+            });
         }
     }
 };
