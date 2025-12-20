@@ -22,7 +22,6 @@ import {
 } from '@chakra-ui/react';
 import { SearchIcon, BellIcon, ChevronDownIcon } from '@chakra-ui/icons';
 import {
-  FiTrendingUp,
   FiPackage,
   FiShoppingCart,
   FiDollarSign,
@@ -51,7 +50,7 @@ function MenuItem({ icon, label, isActive, onClick }: MenuItemProps) {
       borderRadius="md"
       cursor="pointer"
       bg={isActive ? 'green.50' : 'transparent'}
-      color={isActive ? 'green.600' : 'gray.600'}
+      color={isActive ? 'black.600' : 'gray.600'}
       _hover={{ bg: 'green.50', color: 'green.600' }}
       onClick={onClick}
       transition="all 0.2s"
@@ -83,11 +82,10 @@ function Layout() {
 
   // Items del menú
   const menuItems = [
-    { icon: FiTrendingUp, label: 'Ventas', path: '/' },
+    { icon: FiBarChart2, label: 'Ventas y Analíticas', path: '/analytics' },
     { icon: FiPackage, label: 'Productos', path: '/products' },
     { icon: FiShoppingCart, label: 'Pedidos', path: '/orders' },
     { icon: FiDollarSign, label: 'Pagos', path: '/payments' },
-    { icon: FiBarChart2, label: 'Analíticas', path: '/analytics' },
   ];
 
   return (
@@ -95,7 +93,7 @@ function Layout() {
       {/* SIDEBAR - Menú lateral */}
       <Box
         w="250px"
-        bg="white"
+        bg="purple.50"
         borderRight="1px"
         borderColor="gray.200"
         p={4}
@@ -151,7 +149,7 @@ function Layout() {
         {/* HEADER - Barra superior */}
         <Flex
           h="70px"
-          bg="white"
+          bg="purple.50"
           borderBottom="1px"
           borderColor="gray.200"
           px={6}
@@ -204,7 +202,7 @@ function Layout() {
                 borderColor="gray.200"
               >
                 <HStack spacing={3}>
-                  <Avatar size="sm" name={user?.name || 'Admin'} bg="green.500" />
+                  <Avatar size="sm" name={user?.name || 'Admin'} bg="purple.500" />
                   <Box textAlign="left">
                     <Text fontSize="sm" fontWeight="medium" color="gray.700">
                       {user?.name || 'Admin'}

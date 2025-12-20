@@ -13,46 +13,60 @@ import {
   Badge,
   Icon,
   HStack,
-  Progress,
-  ButtonGroup,
-  Button,
+  Tooltip,
 } from '@chakra-ui/react';
 import {
+  FiDollarSign,
+  FiShoppingCart,
   FiTrendingUp,
-  FiPackage,
-  FiAlertTriangle,
   FiPercent,
   FiArrowUp,
   FiArrowDown,
 } from 'react-icons/fi';
+import CategoryButtons from '../components/CategoryButtons';
+import BarChart from '../components/BarChart';
 
-// Componente StatCard para las métricas superiores
-interface StatCardProps {
+// Componente StatsCard con cambio porcentual
+interface StatsCardProps {
   title: string;
   value: string;
-  subtitle: string;
+  change: string;
+  isPositive: boolean;
   icon: any;
   iconBg: string;
-  iconColor?: string;
 }
 
-function StatCard({ title, value, subtitle, icon, iconBg, iconColor }: StatCardProps) {
+function StatsCard({ title, value, change, isPositive, icon, iconBg }: StatsCardProps) {
   return (
-    <Box bg="white" p={6} borderRadius="lg" boxShadow="sm">
+    <Box bg="purple.50" p={6} borderRadius="lg" boxShadow="sm">
       <Flex justify="space-between" align="start">
         <Box>
-          <Text fontSize="sm" color="gray.600" mb={1}>
+          <Text fontSize="sm" color="gray.600" mb={2}>
             {title}
           </Text>
-          <Text fontSize="3xl" fontWeight="bold" color="gray.800" mb={1}>
+          <Text fontSize="2xl" fontWeight="bold" color="gray.800">
             {value}
           </Text>
-          <Text fontSize="sm" color="gray.500">
-            {subtitle}
-          </Text>
+          <HStack mt={2} spacing={1}>
+            <Icon
+              as={isPositive ? FiArrowUp : FiArrowDown}
+              color={isPositive ? 'green.500' : 'red.500'}
+              boxSize={4}
+            />
+            <Text
+              fontSize="sm"
+              color={isPositive ? 'green.500' : 'red.500'}
+              fontWeight="medium"
+            >
+              {change}
+            </Text>
+            <Text fontSize="sm" color="gray.500">
+              vs mes anterior
+            </Text>
+          </HStack>
         </Box>
         <Box bg={iconBg} p={3} borderRadius="md">
-          <Icon as={icon} boxSize={6} color={iconColor || 'white'} />
+          <Icon as={icon} boxSize={6} color="white" />
         </Box>
       </Flex>
     </Box>
@@ -60,55 +74,69 @@ function StatCard({ title, value, subtitle, icon, iconBg, iconColor }: StatCardP
 }
 
 function Analytics() {
-  // Métricas superiores
+  // Métricas principales de ventas
   const stats = [
     {
-      title: 'Ventas Esta Semana',
-      value: '$106,200',
-      subtitle: '+24.5% vs semana anterior',
-      icon: FiTrendingUp,
-      iconBg: 'blue.500',
-    },
-    {
-      title: 'Productos Activos',
-      value: '187',
-      subtitle: 'En catálogo',
-      icon: FiPackage,
+      title: 'Ventas Totales',
+      value: '$328,000',
+      change: '+12.5%',
+      isPositive: true,
+      icon: FiDollarSign,
       iconBg: 'green.500',
     },
     {
-      title: 'Stock Crítico',
-      value: '4',
-      subtitle: 'Requieren reabastecimiento',
-      icon: FiAlertTriangle,
-      iconBg: 'orange.50',
-      iconColor: 'orange.500',
+      title: 'Pedidos Completados',
+      value: '248',
+      change: '+8.2%',
+      isPositive: true,
+      icon: FiShoppingCart,
+      iconBg: 'blue.500',
+    },
+    {
+      title: 'Ticket Promedio',
+      value: '$1,322',
+      change: '+6.3%',
+      isPositive: true,
+      icon: FiTrendingUp,
+      iconBg: 'purple.500',
     },
     {
       title: 'Tasa de Conversión',
       value: '6.87%',
-      subtitle: '+1.2% vs mes anterior',
+      change: '+1.2%',
+      isPositive: true,
       icon: FiPercent,
-      iconBg: 'purple.500',
+      iconBg: 'orange.500',
     },
   ];
 
-  // Datos de ventas por día (para el gráfico de línea simulado con barras)
-  const salesByDay = [
-    { day: 'Lun', sales: 12000, percentage: 50 },
-    { day: 'Mar', sales: 15000, percentage: 62 },
-    { day: 'Mié', sales: 10000, percentage: 42 },
-    { day: 'Jue', sales: 18000, percentage: 75 },
-    { day: 'Vie', sales: 22000, percentage: 92 },
-    { day: 'Sáb', sales: 20000, percentage: 83 },
-    { day: 'Dom', sales: 12000, percentage: 50 },
+  // Datos de ventas por día (para gráfico de barras)
+  const dailySalesData = [
+    { label: 'Lun', value: 12000 },
+    { label: 'Mar', value: 15000 },
+    { label: 'Mié', value: 10000 },
+    { label: 'Jue', value: 18000 },
+    { label: 'Vie', value: 22000 },
+    { label: 'Sáb', value: 20000 },
+    { label: 'Dom', value: 12000 },
   ];
 
-  // Datos del embudo de conversión
-  const conversionFunnel = [
-    { stage: 'Visitantes', value: 14000, percentage: 100, color: 'green.500' },
-    { stage: 'Leads', value: 3500, percentage: 25, color: 'green.400' },
-    { stage: 'Pedidos', value: 900, percentage: 6.4, color: 'green.300' },
+  // Datos de ingresos mensuales (para gráfico de barras)
+  const monthlySalesData = [
+    { label: 'Ene', value: 45000 },
+    { label: 'Feb', value: 32000 },
+    { label: 'Mar', value: 28000 },
+    { label: 'Abr', value: 35000 },
+    { label: 'May', value: 55000 },
+    { label: 'Jun', value: 52000 },
+  ];
+
+  // Datos de ventas por período
+  const salesPeriod = [
+    { label: 'Hoy', value: '$12,450' },
+    { label: 'Esta Semana', value: '$54,320' },
+    { label: 'Este Mes', value: '$67,000' },
+    { label: 'Este Año', value: '$328,000' },
   ];
 
   // Productos más vendidos
@@ -152,184 +180,83 @@ function Analytics() {
 
   return (
     <Box>
-        <Box
-      minH="0vh"
-      w="100vw"
-      bg="gray.50"
-      display="flex"
-      alignItems="center"
-      justifyContent="center"
-      p={4}
-    ></Box>
-      {/* Encabezado con botones de categoría */}
+      <Box
+        minH="0vh"
+        w="100vw"
+        bg="gray.50"
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+        p={4}
+      ></Box>
+
+      {/* Encabezado */}
       <Flex justify="space-between" align="center" mb={6}>
-        <Heading size="lg" color="gray.800">
-           Panel de Analíticas
-        </Heading>
-        <ButtonGroup size="sm">
-          <Button colorScheme="green" variant="outline">
-            Accesorios
-          </Button>
-          <Button colorScheme="red" variant="outline">
-            Cacharrería
-          </Button>
-          <Button colorScheme="blue" variant="solid">
-            Android
-          </Button>
-          <Button colorScheme="yellow" variant="outline">
-            iPhone
-          </Button>
-        </ButtonGroup>
+        <Box>
+          <Heading size="lg" color="gray.800">
+            Panel de Ventas y Analíticas
+          </Heading>
+          <Text fontSize="sm" color="gray.600" mt={1}>
+            Métricas y reportes de rendimiento
+          </Text>
+        </Box>
+        <CategoryButtons />
       </Flex>
 
-      <Text fontSize="sm" color="gray.600" mb={6}>
-        Métricas y reportes de rendimiento
-      </Text>
-
-      {/* Tarjetas de métricas superiores */}
+      {/* Tarjetas de métricas principales */}
       <Grid templateColumns="repeat(4, 1fr)" gap={6} mb={6}>
         {stats.map((stat, index) => (
-          <StatCard key={index} {...stat} />
+          <StatsCard key={index} {...stat} />
         ))}
       </Grid>
 
-      {/* Gráficos */}
+      {/* Ventas por período */}
+      <Grid templateColumns="repeat(4, 1fr)" gap={4} mb={6}>
+        {salesPeriod.map((period, index) => (
+          <Box
+            key={index}
+            bg="purple.50"
+            p={4}
+            borderRadius="lg"
+            boxShadow="sm"
+            borderLeft="4px"
+            borderColor="purple.500"
+          >
+            <Text fontSize="sm" color="gray.600" mb={1}>
+              {period.label}
+            </Text>
+            <Text fontSize="xl" fontWeight="bold" color="gray.800">
+              {period.value}
+            </Text>
+          </Box>
+        ))}
+      </Grid>
+
+      {/* Gráficos de barras */}
       <Grid templateColumns="repeat(2, 1fr)" gap={6} mb={6}>
-        {/* Ventas por Día */}
-        <Box bg="white" p={6} borderRadius="lg" boxShadow="sm">
-          <Heading size="md" mb={2} color="gray.800">
-            Ventas por Día
-          </Heading>
-          <Text fontSize="sm" color="gray.600" mb={6}>
-            Última semana
-          </Text>
+        {/* Gráfico de Ventas Diarias */}
+        <BarChart
+          title="Ventas Diarias"
+          subtitle="Última semana"
+          data={dailySalesData}
+          barColor="purple.400"
+          height={280}
+          showValues={false}
+        />
 
-          {/* Gráfico simulado con líneas y puntos usando CSS */}
-          <Box position="relative" h="300px" mb={4}>
-            {/* Líneas de cuadrícula horizontales */}
-            <Box position="absolute" top="0" left="0" right="0" h="100%">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <Box
-                  key={i}
-                  position="absolute"
-                  top={`${i * 25}%`}
-                  left="0"
-                  right="0"
-                  h="1px"
-                  bg="gray.100"
-                />
-              ))}
-            </Box>
-
-            {/* Línea de ventas simulada */}
-            <Flex
-              position="absolute"
-              bottom="0"
-              left="0"
-              right="0"
-              h="100%"
-              align="flex-end"
-              justify="space-around"
-              px={4}
-            >
-              {salesByDay.map((day, index) => (
-                <Flex
-                  key={index}
-                  direction="column"
-                  align="center"
-                  justify="flex-end"
-                  h="100%"
-                  position="relative"
-                  flex={1}
-                >
-                  {/* Punto del gráfico */}
-                  <Box
-                    position="absolute"
-                    bottom={`${day.percentage}%`}
-                    w="12px"
-                    h="12px"
-                    bg="green.500"
-                    borderRadius="full"
-                    border="3px solid white"
-                    boxShadow="md"
-                  />
-                  {/* Barra vertical (opcional para mayor claridad) */}
-                  <Box
-                    w="2px"
-                    h={`${day.percentage}%`}
-                    bg="green.200"
-                    mb={2}
-                  />
-                </Flex>
-              ))}
-            </Flex>
-
-            {/* Etiquetas de días */}
-            <Flex
-              position="absolute"
-              bottom="-30px"
-              left="0"
-              right="0"
-              justify="space-around"
-              px={4}
-            >
-              {salesByDay.map((day, index) => (
-                <Text
-                  key={index}
-                  fontSize="xs"
-                  color="gray.600"
-                  textAlign="center"
-                  flex={1}
-                >
-                  {day.day}
-                </Text>
-              ))}
-            </Flex>
-          </Box>
-        </Box>
-
-        {/* Embudo de Conversión */}
-        <Box bg="white" p={6} borderRadius="lg" boxShadow="sm">
-          <Heading size="md" mb={2} color="gray.800">
-            Embudo de Conversión
-          </Heading>
-          <Text fontSize="sm" color="gray.600" mb={6}>
-            Tasa de paso: 28.4%
-          </Text>
-
-          <Box>
-            {conversionFunnel.map((stage, index) => (
-              <Box key={index} mb={6}>
-                <Flex justify="space-between" mb={2}>
-                  <Text fontWeight="medium" color="gray.700">
-                    {stage.stage}
-                  </Text>
-                  <HStack spacing={2}>
-                    <Text fontSize="sm" fontWeight="semibold" color="gray.800">
-                      {stage.value.toLocaleString()}
-                    </Text>
-                    {index > 0 && (
-                      <Text fontSize="xs" color="gray.500">
-                        ({stage.percentage}%)
-                      </Text>
-                    )}
-                  </HStack>
-                </Flex>
-                <Progress
-                  value={stage.percentage}
-                  colorScheme="green"
-                  size="lg"
-                  borderRadius="full"
-                  bg="gray.100"
-                />
-              </Box>
-            ))}
-          </Box>
-        </Box>
+        {/* Gráfico de Ingresos Mensuales */}
+        <BarChart
+          title="Ingresos Mensuales"
+          subtitle="Últimos 6 meses"
+          data={monthlySalesData}
+          barColor="purple.400"
+          height={280}
+          showValues={false}
+        />
       </Grid>
 
       {/* Tabla de Productos Más Vendidos */}
-      <Box bg="white" p={6} borderRadius="lg" boxShadow="sm">
+      <Box bg="purple.50" p={6} borderRadius="lg" boxShadow="sm">
         <Heading size="md" mb={2} color="gray.800">
           Productos Más Vendidos
         </Heading>
@@ -349,31 +276,121 @@ function Analytics() {
           </Thead>
           <Tbody>
             {topProducts.map((product) => (
-              <Tr key={product.position}>
+              <Tr key={product.position} _hover={{ bg: 'gray.50' }}>
+                {/* Posición */}
                 <Td>
-                  <Badge
-                    colorScheme={product.position === 1 ? 'green' : 'gray'}
-                    fontSize="md"
+                  <Tooltip
+                    label={`Posición #${product.position} en ventas`}
+                    placement="top"
+                    hasArrow
+                    bg="gray.800"
+                    color="white"
+                    fontSize="sm"
+                    fontWeight="bold"
                     px={3}
-                    py={1}
-                    borderRadius="full"
+                    py={2}
+                    borderRadius="md"
+                    openDelay={0}
                   >
-                    {product.position}
-                  </Badge>
+                    <Badge
+                      colorScheme={product.position === 1 ? 'purple' : 'gray'}
+                      fontSize="md"
+                      px={3}
+                      py={1}
+                      borderRadius="full"
+                      cursor="pointer"
+                    >
+                      {product.position}
+                    </Badge>
+                  </Tooltip>
                 </Td>
-                <Td fontWeight="medium" color="gray.700">
-                  {product.name}
-                </Td>
-                <Td color="gray.600">{product.units}</Td>
-                <Td fontWeight="semibold" color="gray.800">
-                  {product.revenue}
-                </Td>
+
+                {/* Producto */}
                 <Td>
-                  <Icon
-                    as={product.trend === 'up' ? FiArrowUp : FiArrowDown}
-                    color={product.trend === 'up' ? 'green.500' : 'red.500'}
-                    boxSize={5}
-                  />
+                  <Tooltip
+                    label={`Producto: ${product.name}`}
+                    placement="top"
+                    hasArrow
+                    bg="gray.800"
+                    color="white"
+                    fontSize="sm"
+                    fontWeight="bold"
+                    px={3}
+                    py={2}
+                    borderRadius="md"
+                    openDelay={0}
+                  >
+                    <Text fontWeight="medium" color="gray.700" cursor="pointer">
+                      {product.name}
+                    </Text>
+                  </Tooltip>
+                </Td>
+
+                {/* Unidades Vendidas */}
+                <Td>
+                  <Tooltip
+                    label={`Unidades vendidas: ${product.units}`}
+                    placement="top"
+                    hasArrow
+                    bg="blue.600"
+                    color="white"
+                    fontSize="sm"
+                    fontWeight="bold"
+                    px={3}
+                    py={2}
+                    borderRadius="md"
+                    openDelay={0}
+                  >
+                    <Text color="gray.600" cursor="pointer">
+                      {product.units}
+                    </Text>
+                  </Tooltip>
+                </Td>
+
+                {/* Valor Total */}
+                <Td>
+                  <Tooltip
+                    label={`Ingresos generados: ${product.revenue}`}
+                    placement="top"
+                    hasArrow
+                    bg="green.600"
+                    color="white"
+                    fontSize="md"
+                    fontWeight="bold"
+                    px={4}
+                    py={2}
+                    borderRadius="md"
+                    openDelay={0}
+                  >
+                    <Text fontWeight="semibold" color="gray.800" cursor="pointer">
+                      {product.revenue}
+                    </Text>
+                  </Tooltip>
+                </Td>
+
+                {/* Tendencia */}
+                <Td>
+                  <Tooltip
+                    label={`Tendencia: ${product.trend === 'up' ? 'En aumento' : 'En descenso'}`}
+                    placement="top"
+                    hasArrow
+                    bg={product.trend === 'up' ? 'green.600' : 'red.500'}
+                    color="white"
+                    fontSize="sm"
+                    fontWeight="bold"
+                    px={3}
+                    py={2}
+                    borderRadius="md"
+                    openDelay={0}
+                  >
+                    <Box cursor="pointer" display="inline-block">
+                      <Icon
+                        as={product.trend === 'up' ? FiArrowUp : FiArrowDown}
+                        color={product.trend === 'up' ? 'green.500' : 'red.500'}
+                        boxSize={5}
+                      />
+                    </Box>
+                  </Tooltip>
                 </Td>
               </Tr>
             ))}

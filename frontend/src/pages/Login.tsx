@@ -99,7 +99,7 @@ function Login() {
         <VStack spacing={8} align="stretch">
           <VStack spacing={2}>
             <Box
-              bg="green.500"
+              bg="purple.500"
               p={4}
               borderRadius="lg"
               display="inline-block"
@@ -112,7 +112,7 @@ function Login() {
               </Icon>
             </Box>
             <Heading size="lg">Panel Administrativo</Heading>
-            <Text color="gray.600">Tienda Mayorista</Text>
+            <Text color="gray.600">Bodega Mayorista</Text>
           </VStack>
 
           <Box bg="white" p={8} borderRadius="lg" boxShadow="md">
@@ -139,7 +139,7 @@ function Login() {
                   </InputLeftElement>
                   <Input
                     type="email"
-                    placeholder="admin@tienda.com"
+                    placeholder="admin@bodega.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     onKeyPress={handleKeyPress}
@@ -156,7 +156,7 @@ function Login() {
                   </InputLeftElement>
                   <Input
                     type="password"
-                    placeholder="········"
+                    placeholder="********"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyPress={handleKeyPress}
@@ -166,7 +166,7 @@ function Login() {
               </FormControl>
 
               <Button
-                colorScheme="green"
+                colorScheme="purple"
                 size="lg"
                 width="full"
                 onClick={handleLogin}

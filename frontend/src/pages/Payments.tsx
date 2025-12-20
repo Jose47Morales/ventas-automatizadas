@@ -11,11 +11,9 @@ import {
   Th,
   Td,
   Badge,
-  Button,
   Icon,
   HStack,
   VStack,
-  ButtonGroup,
 } from '@chakra-ui/react';
 import {
   FiDollarSign,
@@ -25,6 +23,7 @@ import {
   FiArrowUp,
   FiArrowDown,
 } from 'react-icons/fi';
+import CategoryButtons from '../components/CategoryButtons';
 
 // Componente StatCard para las métricas superiores
 interface StatCardProps {
@@ -38,13 +37,13 @@ interface StatCardProps {
 
 function StatCard({ title, value, change, isPositive, icon, iconBg }: StatCardProps) {
   return (
-    <Box bg="white" p={6} borderRadius="lg" boxShadow="sm">
+    <Box bg="purple.50" p={6} borderRadius="lg" boxShadow="sm">
       <Flex justify="space-between" align="start">
         <Box>
-          <Text fontSize="sm" color="gray.600" mb={2}>
+          <Text fontSize="sm" color="black.600" mb={2}>
             {title}
           </Text>
-          <Text fontSize="2xl" fontWeight="bold" color="gray.800">
+          <Text fontSize="2xl" fontWeight="bold" color="black.800">
             {value}
           </Text>
           <HStack mt={2} spacing={1}>
@@ -60,7 +59,7 @@ function StatCard({ title, value, change, isPositive, icon, iconBg }: StatCardPr
             >
               {change}
             </Text>
-            <Text fontSize="sm" color="gray.500">
+            <Text fontSize="sm" color="black.500">
               vs mes anterior
             </Text>
           </HStack>
@@ -124,7 +123,7 @@ function Payments() {
       value: '$8,450.00',
       icon: FiArrowDown,
       color: 'red.500',
-      bg: 'red.50',
+      bg: 'red.100',
     },
     {
       label: 'Balance Neto',
@@ -226,22 +225,9 @@ function Payments() {
       {/* Encabezado */}
       <Flex justify="space-between" align="center" mb={6}>
         <Heading size="lg" color="gray.800">
-           Panel de Pagos
+          Panel de Pagos
         </Heading>
-        <ButtonGroup size="sm">
-          <Button colorScheme="green" variant="outline">
-            Accesorios
-          </Button>
-          <Button colorScheme="red" variant="outline">
-            Cacharrería
-          </Button>
-          <Button colorScheme="blue" variant="solid">
-            Android
-          </Button>
-          <Button colorScheme="yellow" variant="outline">
-            iPhone
-          </Button>
-        </ButtonGroup>
+        <CategoryButtons />
       </Flex>
 
       {/* Tarjetas de métricas principales */}
@@ -254,8 +240,8 @@ function Payments() {
       {/* Sección de Resumen Contable y Pagos por Pasarela */}
       <Grid templateColumns="repeat(2, 1fr)" gap={6} mb={6}>
         {/* Resumen Contable */}
-        <Box bg="white" p={6} borderRadius="lg" boxShadow="sm">
-          <Heading size="md" mb={4} color="gray.800">
+        <Box bg="purple.50" p={6} borderRadius="lg" boxShadow="sm">
+          <Heading size="md" mb={4} color="black">
             Resumen Contable
           </Heading>
           <VStack spacing={4} align="stretch">
@@ -287,8 +273,8 @@ function Payments() {
         </Box>
 
         {/* Pagos por Pasarela */}
-        <Box bg="white" p={6} borderRadius="lg" boxShadow="sm">
-          <Heading size="md" mb={4} color="gray.800">
+        <Box bg="purple.50" p={6} borderRadius="lg" boxShadow="sm">
+          <Heading size="md" mb={4} color="black">
             Pagos por Pasarela
           </Heading>
           <VStack spacing={4} align="stretch">
@@ -298,7 +284,7 @@ function Payments() {
                 p={4}
                 borderRadius="md"
                 border="1px"
-                borderColor="gray.200"
+                borderColor="gray.500"
                 _hover={{ bg: 'gray.50' }}
                 transition="all 0.2s"
               >
@@ -307,7 +293,7 @@ function Payments() {
                     <Text fontWeight="semibold" color="gray.800" mb={1}>
                       {gateway.name}
                     </Text>
-                    <Text fontSize="sm" color="gray.500">
+                    <Text fontSize="sm" color="black.500">
                       {gateway.count} pagos
                     </Text>
                   </Box>
@@ -322,7 +308,7 @@ function Payments() {
       </Grid>
 
       {/* Historial de Pagos */}
-      <Box bg="white" borderRadius="lg" boxShadow="sm" overflow="hidden">
+      <Box bg="purple.50" borderRadius="lg" boxShadow="sm" overflow="hidden">
         <Box p={4} borderBottom="1px" borderColor="gray.200">
           <Text fontSize="md" fontWeight="semibold" color="gray.800">
             Historial de Pagos
@@ -339,7 +325,6 @@ function Payments() {
               <Th>Monto</Th>
               <Th>Estado</Th>
               <Th>Fecha</Th>
-              <Th>Acciones</Th>
             </Tr>
           </Thead>
           <Tbody>
@@ -406,27 +391,6 @@ function Payments() {
 
                 {/* Fecha */}
                 <Td color="gray.600">{payment.date}</Td>
-
-                {/* Acciones */}
-                <Td>
-                  {payment.status === 'Pendiente' && (
-                    <Button
-                      size="sm"
-                      colorScheme="green"
-                      variant="solid"
-                      onClick={() =>
-                        alert(`Marcar pago ${payment.id} como pagado (próximamente)`)
-                      }
-                    >
-                      Marcar Pagado
-                    </Button>
-                  )}
-                  {payment.status === 'Completado' && (
-                    <Text fontSize="sm" color="gray.400">
-                      Sin acciones
-                    </Text>
-                  )}
-                </Td>
               </Tr>
             ))}
           </Tbody>

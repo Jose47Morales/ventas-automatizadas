@@ -20,46 +20,107 @@ import {
   MenuList,
   MenuItem,
   HStack,
+  VStack,
   Text,
   Avatar,
-  ButtonGroup,
+  FormControl,
+  FormLabel,
+  NumberInput,
+  NumberInputField,
+  Select,
+  useToast,
+  Divider,
+  Icon,
 } from '@chakra-ui/react';
 import { SearchIcon, ChevronDownIcon } from '@chakra-ui/icons';
-import { FiEdit2, FiPlus } from 'react-icons/fi';
+import { FiEdit2, FiPlus, FiPackage, FiSave, FiX, FiTrash2 } from 'react-icons/fi';
+import { productsAPI } from '../services/api';
+import { useEnvironment } from '../context/EnvironmentContext';
+import CategoryButtons from '../components/CategoryButtons';
+import type { Environment } from '../context/EnvironmentContext';
+
+// Interface para los productos
+interface Product {
+  id: number;
+  name: string;
+  category: string;
+  environment: Environment;
+  price: number;
+  minQuantity: number;
+  discount: number;
+  stock: number;
+  image: string;
+}
 
 function Products() {
   // Estado para el término de búsqueda
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // Estado para la categoría seleccionada
   const [selectedCategory, setSelectedCategory] = useState('Todas las categorías');
 
-  // Datos de ejemplo de productos
-  const products = [
+  // Estado para el modal de edición
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Toast para notificaciones
+  const toast = useToast();
+
+  // Contexto del entorno
+  const { currentEnvironment } = useEnvironment();
+
+  // Datos de ejemplo de productos con entorno
+  const products: Product[] = [
     {
       id: 1,
-      name: 'Reloj Inteligente Premium',
-      category: 'Electrónica',
-      price: 89.99,
+      name: 'Funda Samsung Galaxy S24',
+      category: 'Fundas',
+      environment: 'Android',
+      price: 15.99,
       minQuantity: 50,
-      discount: 15,
+      discount: 10,
       stock: 450,
-      image: '⌚',
+      image: '📱',
     },
     {
       id: 2,
-      name: 'Camiseta Básica Premium',
-      category: 'Ropa',
-      price: 12.50,
-      minQuantity: 100,
-      discount: 20,
-      stock: 1200,
-      image: '👕',
+      name: 'Cargador Rápido USB-C',
+      category: 'Cargadores',
+      environment: 'Android',
+      price: 25.00,
+      minQuantity: 30,
+      discount: 15,
+      stock: 320,
+      image: '🔌',
     },
     {
       id: 3,
+      name: 'Funda iPhone 15 Pro',
+      category: 'Fundas',
+      environment: 'iPhone',
+      price: 22.99,
+      minQuantity: 40,
+      discount: 12,
+      stock: 280,
+      image: '📱',
+    },
+    {
+      id: 4,
+      name: 'Cable Lightning Original',
+      category: 'Cables',
+      environment: 'iPhone',
+      price: 35.00,
+      minQuantity: 25,
+      discount: 8,
+      stock: 150,
+      image: '🔗',
+    },
+    {
+      id: 5,
       name: 'Audífonos Bluetooth Pro',
-      category: 'Electrónica',
+      category: 'Audio',
+      environment: 'Accesorios',
       price: 45.00,
       minQuantity: 30,
       discount: 18,
@@ -67,19 +128,10 @@ function Products() {
       image: '🎧',
     },
     {
-      id: 4,
-      name: 'Zapatillas Deportivas',
-      category: 'Calzado',
-      price: 65.00,
-      minQuantity: 24,
-      discount: 25,
-      stock: 180,
-      image: '👟',
-    },
-    {
-      id: 5,
-      name: 'Mochila Urbana',
-      category: 'Accesorios',
+      id: 6,
+      name: 'Mochila Urbana Tech',
+      category: 'Mochilas',
+      environment: 'Accesorios',
       price: 32.00,
       minQuantity: 20,
       discount: 23,
@@ -87,28 +139,42 @@ function Products() {
       image: '🎒',
     },
     {
-      id: 6,
-      name: 'Botella Térmica Inox',
-      category: 'Hogar',
-      price: 18.50,
-      minQuantity: 48,
-      discount: 15,
-      stock: 620,
-      image: '🍶',
+      id: 7,
+      name: 'Soporte para Auto',
+      category: 'Soportes',
+      environment: 'Cacharrería',
+      price: 12.50,
+      minQuantity: 100,
+      discount: 20,
+      stock: 500,
+      image: '🚗',
+    },
+    {
+      id: 8,
+      name: 'Protector de Pantalla Universal',
+      category: 'Protectores',
+      environment: 'Cacharrería',
+      price: 8.00,
+      minQuantity: 200,
+      discount: 25,
+      stock: 1200,
+      image: '🛡️',
     },
   ];
 
   // Categorías disponibles
   const categories = [
     'Todas las categorías',
-    'Electrónica',
-    'Ropa',
-    'Calzado',
-    'Accesorios',
-    'Hogar',
+    'Fundas',
+    'Cargadores',
+    'Cables',
+    'Audio',
+    'Mochilas',
+    'Soportes',
+    'Protectores',
   ];
 
-  // Filtrar productos según búsqueda y categoría
+  // Filtrar productos según búsqueda, categoría y entorno
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name
       .toLowerCase()
@@ -116,7 +182,10 @@ function Products() {
     const matchesCategory =
       selectedCategory === 'Todas las categorías' ||
       product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const matchesEnvironment =
+      currentEnvironment === 'Todos' ||
+      product.environment === currentEnvironment;
+    return matchesSearch && matchesCategory && matchesEnvironment;
   });
 
   // Función para determinar el color del badge de stock
@@ -133,6 +202,94 @@ function Products() {
     return 'Bajo';
   };
 
+  // Función para abrir el modal de edición
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct({ ...product });
+    setIsEditModalOpen(true);
+  };
+
+  // Función para cerrar el modal de edición
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingProduct(null);
+  };
+
+  // Función para actualizar el campo del producto en edición
+  const handleFieldChange = (field: keyof Product, value: string | number) => {
+    if (editingProduct) {
+      setEditingProduct({
+        ...editingProduct,
+        [field]: value,
+      });
+    }
+  };
+
+  // Función para eliminar producto
+  const handleDeleteProduct = async (product: Product) => {
+    if (!window.confirm(`¿Estás seguro de eliminar "${product.name}"?`)) return;
+
+    try {
+      await productsAPI.delete(product.id);
+      toast({
+        title: 'Producto eliminado',
+        description: `${product.name} se ha eliminado correctamente.`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      // Aquí podrías recargar los productos desde la API
+    } catch (error) {
+      console.error('Error al eliminar producto:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo eliminar el producto. Intenta de nuevo.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  // Función para guardar los cambios
+  const handleSaveProduct = async () => {
+    if (!editingProduct) return;
+
+    setIsLoading(true);
+    try {
+      // Llamar a la API para actualizar el producto
+      await productsAPI.update(editingProduct.id, {
+        nombre: editingProduct.name,
+        categoria: editingProduct.category,
+        precio: editingProduct.price,
+        cantidad_minima: editingProduct.minQuantity,
+        descuento: editingProduct.discount,
+        stock: editingProduct.stock,
+      });
+
+      toast({
+        title: 'Producto actualizado',
+        description: `${editingProduct.name} se ha actualizado correctamente.`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+
+      handleCloseEditModal();
+      // Aquí podrías recargar los productos desde la API
+    } catch (error) {
+      console.error('Error al actualizar producto:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo actualizar el producto. Intenta de nuevo.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Box>
         <Box
@@ -145,29 +302,16 @@ function Products() {
       p={4}
     ></Box>
       {/* Encabezado */}
-<Flex justify="space-between" align="center" mb={6}>
+      <Flex justify="space-between" align="center" mb={6}>
         <Heading size="lg" color="gray.800">
-           Panel de Productos
+          Panel de Productos
         </Heading>
-        <ButtonGroup size="sm">
-          <Button colorScheme="green" variant="outline">
-            Accesorios
-          </Button>
-          <Button colorScheme="red" variant="outline">
-            Cacharrería
-          </Button>
-          <Button colorScheme="blue" variant="solid">
-            Android
-          </Button>
-          <Button colorScheme="yellow" variant="outline">
-            iPhone
-          </Button>
-        </ButtonGroup>
+        <CategoryButtons />
       </Flex>
       {/* Botón de agregar producto */}
         <Button
           leftIcon={<FiPlus />}
-          colorScheme="green"
+          colorScheme="purple"
           size="md"
           onClick={() => alert('Función de agregar producto próximamente')}
         >
@@ -175,7 +319,7 @@ function Products() {
         </Button>
       
       {/* Barra de búsqueda y filtros */}
-      <Box bg="white" p={6} borderRadius="lg" boxShadow="sm" mb={6}>
+      <Box bg="purple.50" p={6} borderRadius="lg" boxShadow="sm" mb={6}>
         <Flex gap={4} align="center">
           {/* Buscador */}
           <InputGroup flex={1}>
@@ -221,7 +365,7 @@ function Products() {
       </Box>
 
       {/* Tabla de productos */}
-      <Box bg="white" borderRadius="lg" boxShadow="sm" overflow="hidden">
+      <Box bg="purple.50" borderRadius="lg" boxShadow="sm" overflow="hidden">
         <Table variant="simple">
           <Thead bg="gray.50">
             <Tr>
@@ -296,18 +440,24 @@ function Products() {
 
                   {/* Acciones */}
                   <Td>
-                    <IconButton
-                      aria-label="Editar producto"
-                      icon={<FiEdit2 />}
-                      size="sm"
-                      variant="ghost"
-                      colorScheme="blue"
-                      onClick={() =>
-                        alert(
-                          `Editar producto: ${product.name} (próximamente)`
-                        )
-                      }
-                    />
+                    <HStack spacing={1}>
+                      <IconButton
+                        aria-label="Editar producto"
+                        icon={<FiEdit2 />}
+                        size="sm"
+                        variant="ghost"
+                        colorScheme="blue"
+                        onClick={() => handleEditProduct(product)}
+                      />
+                      <IconButton
+                        aria-label="Eliminar producto"
+                        icon={<FiTrash2 />}
+                        size="sm"
+                        variant="ghost"
+                        colorScheme="red"
+                        onClick={() => handleDeleteProduct(product)}
+                      />
+                    </HStack>
                   </Td>
                 </Tr>
               ))
@@ -334,6 +484,183 @@ function Products() {
           Usa los filtros para encontrar productos rápidamente.
         </Text>
       </Box>
+
+      {/* Modal de Edición de Producto */}
+      {isEditModalOpen && editingProduct && (
+        <Box
+          position="fixed"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          bg="blackAlpha.600"
+          zIndex={9999}
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          onClick={handleCloseEditModal}
+        >
+          <Box
+            bg="white"
+            borderRadius="xl"
+            maxW="500px"
+            w="90%"
+            maxH="90vh"
+            overflow="auto"
+            boxShadow="2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <Box bg="purple.500" color="white" p={4} borderTopRadius="xl" position="relative">
+              <HStack spacing={3}>
+                <Icon as={FiPackage} boxSize={5} />
+                <Text fontSize="lg" fontWeight="bold">Editar Producto</Text>
+              </HStack>
+              <IconButton
+                aria-label="Cerrar"
+                icon={<FiX />}
+                position="absolute"
+                right={2}
+                top={2}
+                size="sm"
+                variant="ghost"
+                color="white"
+                _hover={{ bg: 'blue.600' }}
+                onClick={handleCloseEditModal}
+              />
+            </Box>
+
+            {/* Body - Formulario */}
+            <Box p={6}>
+              <VStack spacing={4} align="stretch">
+                {/* Nombre del producto */}
+                <FormControl>
+                  <FormLabel color="gray.700" fontWeight="medium">
+                    Nombre del Producto
+                  </FormLabel>
+                  <Input
+                    value={editingProduct.name}
+                    onChange={(e) => handleFieldChange('name', e.target.value)}
+                    placeholder="Nombre del producto"
+                  />
+                </FormControl>
+
+                {/* Categoría */}
+                <FormControl>
+                  <FormLabel color="gray.700" fontWeight="medium">
+                    Categoría
+                  </FormLabel>
+                  <Select
+                    value={editingProduct.category}
+                    onChange={(e) => handleFieldChange('category', e.target.value)}
+                  >
+                    {categories.filter(c => c !== 'Todas las categorías').map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <Divider />
+
+                {/* Precio y Descuento en una fila */}
+                <HStack spacing={4}>
+                  <FormControl>
+                    <FormLabel color="gray.700" fontWeight="medium">
+                      Precio Unitario ($)
+                    </FormLabel>
+                    <NumberInput
+                      value={editingProduct.price}
+                      onChange={(_, value) => handleFieldChange('price', value || 0)}
+                      min={0}
+                      precision={2}
+                    >
+                      <NumberInputField />
+                    </NumberInput>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel color="gray.700" fontWeight="medium">
+                      Descuento (%)
+                    </FormLabel>
+                    <NumberInput
+                      value={editingProduct.discount}
+                      onChange={(_, value) => handleFieldChange('discount', value || 0)}
+                      min={0}
+                      max={100}
+                    >
+                      <NumberInputField />
+                    </NumberInput>
+                  </FormControl>
+                </HStack>
+
+                {/* Cantidad Mínima y Stock en una fila */}
+                <HStack spacing={4}>
+                  <FormControl>
+                    <FormLabel color="gray.700" fontWeight="medium">
+                      Cantidad Mínima
+                    </FormLabel>
+                    <NumberInput
+                      value={editingProduct.minQuantity}
+                      onChange={(_, value) => handleFieldChange('minQuantity', value || 0)}
+                      min={1}
+                    >
+                      <NumberInputField />
+                    </NumberInput>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel color="gray.700" fontWeight="medium">
+                      Stock Disponible
+                    </FormLabel>
+                    <NumberInput
+                      value={editingProduct.stock}
+                      onChange={(_, value) => handleFieldChange('stock', value || 0)}
+                      min={0}
+                    >
+                      <NumberInputField />
+                    </NumberInput>
+                  </FormControl>
+                </HStack>
+
+                {/* Vista previa del precio con descuento */}
+                <Box bg="purple.50" p={3} borderRadius="md">
+                  <HStack justify="space-between">
+                    <Text fontSize="sm" color="black" fontWeight="medium">
+                      Precio con descuento:
+                    </Text>
+                    <Text fontSize="lg" fontWeight="bold" color="white.600">
+                      ${(editingProduct.price * (1 - editingProduct.discount / 100)).toFixed(2)}
+                    </Text>
+                  </HStack>
+                </Box>
+              </VStack>
+            </Box>
+
+            {/* Footer */}
+            <Box p={4} borderTop="1px" borderColor="gray.200">
+              <HStack justify="flex-end" spacing={3}>
+                <Button
+                  variant="ghost"
+                  onClick={handleCloseEditModal}
+                  leftIcon={<FiX />}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  colorScheme="green"
+                  onClick={handleSaveProduct}
+                  isLoading={isLoading}
+                  leftIcon={<FiSave />}
+                >
+                  Guardar Cambios
+                </Button>
+              </HStack>
+            </Box>
+          </Box>
+        </Box>
+      )}
     </Box>
   );
 }

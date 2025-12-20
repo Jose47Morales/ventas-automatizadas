@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ChakraProvider } from '@chakra-ui/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { EnvironmentProvider } from './context/EnvironmentContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -56,9 +57,11 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ChakraProvider>
         <AuthProvider>
-          <Router>
-            <AppRoutes />
-          </Router>
+          <EnvironmentProvider>
+            <Router>
+              <AppRoutes />
+            </Router>
+          </EnvironmentProvider>
         </AuthProvider>
       </ChakraProvider>
     </QueryClientProvider>
