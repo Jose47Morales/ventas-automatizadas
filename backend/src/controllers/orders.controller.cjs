@@ -51,7 +51,11 @@ module.exports = {
                 });
             }
 
-            const firstItem = items[0];
+            const payload = {
+                client_name: customer.name,
+                client_phone: customer.phone,
+                items
+            };
 
             const newOrder = await ordersService.createOrder(payload);
 
@@ -59,7 +63,7 @@ module.exports = {
                 await logService.saveLog({
                     type: 'order_created',
                     messageId: newOrder?.id,
-                    phone: body.customer?.phone || null,
+                    phone: req.body.customer?.phone || null,
                     data: newOrder,
                 });
             } catch (logError) {
@@ -134,7 +138,7 @@ module.exports = {
                 await logService.saveLog({
                     type: 'order_item_added',
                     messageId: id,
-                    phone: req.body.customer?.phone || null,
+                    phone: null,
                     data: item,
                 });
             } catch (logError) {
