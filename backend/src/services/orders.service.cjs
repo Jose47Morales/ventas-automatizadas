@@ -163,14 +163,13 @@ module.exports = {
             }
 
             const unit_price = Number(productRes.rows[0].precioventa_con_impuesto);
-            const total = unit_price * qty;
 
             const itemRes = await client.query(
                 `INSERT INTO order_items 
-                (order_id, product_id, quantity, unit_price, total)
-                VALUES ($1, $2, $3, $4, $5)
+                (order_id, product_id, quantity, unit_price)
+                VALUES ($1, $2, $3, $4)
                 RETURNING *`,
-                [order_id, product_id, qty, unit_price, total]
+                [order_id, product_id, qty, unit_price]
             );
 
             await client.query(`
