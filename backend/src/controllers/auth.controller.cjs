@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../database/db.cjs');
+const { pool } = require('../database/db.cjs');
 
 // ==============================================
 //     GENERADOR DE TOKENS (ACCESO Y REFRESH)
@@ -18,9 +18,7 @@ function generateTokens(user) {
     );
 
     const refreshToken = jwt.sign(
-        { 
-            sub: user.id 
-        },
+        { sub: user.id },
         process.env.REFRESH_TOKEN_SECRET,
         { expiresIn: '7d' }
     );
@@ -36,36 +34,38 @@ module.exports.register = async (req, res) => {
     try {
         const { email, password, firstName, lastName } = req.body;
 
-        const existing = await db.user.findUnique({ where: { email } });
+        const exists = await pool.query(
+            'SELECT id FROM user WHERE email = $1', 
+            [email]
+        );
 
-        if (existing) {
+        if (exists.rowCount > 0) {
             return res.status(409).json({ error: 'Email is already registered' });
         }
 
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-        const newUser = await db.user.create({
-            data: {
-                email,
-                password: hashedPassword,
-                firstName,
-                lastName,
-                roleSlug: 'global:member'
-            }
-        });
+        const result = await pool.query(
+            `
+            INSERT INTO user (email, password, firstName, lastName, roleSlug)
+            VALUES ($1, $2, $3, $4, 'global:member')
+            RETURNING id, email, firstName, lastName, roleSlug
+            `,
+            [email, hashedPassword, firstName || null, lastName || null]
+        );
 
-        const tokens = generateTokens(newUser);
+        const user = result.rows[0];
+        const tokens = generateTokens(user);
 
         return res.status(201).json({
             message: 'User registered successfully',
             ...tokens,
             user: {
-                id: newUser.id,
-                email: newUser.email,
-                firstName: newUser.firstName,
-                lastName: newUser.lastName,
-                role: newUser.roleSlug
+                id: user.id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                role: user.roleSlug
             }
         });
 
@@ -83,20 +83,25 @@ module.exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        const user = await db.user.findUnique({ 
-            where: { email } 
-        });
+        const result = await pool.query( 
+            `SELECT id, email, firstName, lastName, roleSlug, password, disabled 
+            FROM user 
+            WHERE email = $1
+            `,
+            [email]
+        );
 
-        if (!user) {
+        if (result.rowCount === 0) {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
+
+        const user = result.rows[0];
 
         if (user.disabled) {
             return res.status(403).json({ error: 'User account is disabled' });
         }
 
         const match = await bcrypt.compare(password, user.password);
-
         if (!match) {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
