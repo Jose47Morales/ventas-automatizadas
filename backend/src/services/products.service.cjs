@@ -62,7 +62,7 @@ module.exports = {
     },
 
     createProduct: async (data) => {
-        const { nombre, referencia, codgigo_barras, invima, cum, codigo_producto_dian,
+        const { nombre, referencia, codigo_barras, invima, cum, codigo_producto_dian,
             existencias, impuesto, precioventa_con_impuesto, precio_venta_base,
             precio_venta_minimo, descuento_maximo_ps, precio_compra, precio_compraipm,
             total_impoconsumo, total_estampilla, icui, ibua, costo, stock_minimo,
@@ -85,7 +85,7 @@ module.exports = {
             $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41)
             RETURNING *`,
             [
-                nombre, referencia, codgigo_barras, invima, cum, codigo_producto_dian,
+                nombre, referencia, codigo_barras, invima, cum, codigo_producto_dian,
                 existencias, impuesto, precioventa_con_impuesto, precio_venta_base,
                 precio_venta_minimo, descuento_maximo_ps, precio_compra, precio_compraipm,
                 total_impoconsumo, total_estampilla, icui, ibua, costo, stock_minimo,
