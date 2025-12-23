@@ -6,6 +6,5 @@ const authJwt = require('../middlewares/authJwt.cjs');
 
 router.get('/', authJwt, sessionCtrl.listSessions);
 router.delete('/:id', authJwt, sessionCtrl.revokeSession);
-router.delete('/', authJwt, sessionCtrl.revokeAllSessions);
 
 module.exports = router;
