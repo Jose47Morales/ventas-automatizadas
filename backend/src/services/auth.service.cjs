@@ -1,80 +1,75 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const Users = require('../models/Users.cjs');
-const REFRESH_STORE = new Map();
+const { pool } = require('../database/db.cjs');
+const sessionService = require('./sessions.service.cjs')
 
 const ACCESS_EXPIRE = '15m';
-const REFRESH_EXPIRE = '7d';
+const REFRESH_EXPIRE_DAYS = 7;
 
-function generateTokens(user) {
-    const payload = { id: user.id, role: user.role };
-
-    const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { 
+const accessToken = (user) =>
+    jwt.sign({ sub: user.id, role: user.roleSlug }, process.env.JWT_SECRET, {
         expiresIn: ACCESS_EXPIRE,
     });
 
-    const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET, { 
-        expiresIn: REFRESH_EXPIRE,
+const refreshToken = (user) =>
+    jwt.sign({ sub: user.id }, process.env.REFRESH_TOKEN_SECRET, {
+        expiresIn: `${REFRESH_EXPIRE_DAYS}d`,
     });
 
-    REFRESH_STORE.set(String(user.id), refreshToken);
+exports.login = async (ctx) => {
+    const { email, password } = ctx;
 
-    return { accessToken, refreshToken };
-}
+    const { rows } = await pool.query(
+        'SELECT * FROM "user" WHERE email = $1',
+        [email]
+    );
 
-exports.register = async (body) => {
-    const exists = await Users.findOne({ email: body.email });
-    if (exists) throw new Error('Email is already registered');
+    const user = rows[0];
+    if (!user || user.disabled || user.compromised) {
+        throw new Error('Invalid credentials');
+    }
 
-    const hashed = bcrypt.hashSync(body.password, 10);
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) throw new Error('Invalid credentials');
 
-    const user = await Users.create({
-        name: body.name,
-        email: body.email,
-        password: hashed,
+    const at = accessToken(user);
+    const rt = refreshToken(user);
+
+    const expiresAt = new Date(
+        Date.now() + REFRESH_EXPIRE_DAYS * 24 * 60 * 60 * 1000
+    );
+
+    await sessionService.createSession({
+        userId: user.id,
+        refreshToken: rt,
+        expiresAt,
+        ...ctx,
     });
 
-    return {
-        message: 'User registered successfully',
-        user: { id: user.id, name: user.name, email: user.email }
-    };
+    return { accessToken: at, refreshToken: rt };
 };
 
-exports.login = async (body) => {
-    const user = await Users.findOne({ email: body.email });
-    if (!user) throw new Error('Invalid email or password');
+exports.refreshToken = async (ctx) => {
+    const payload = jwt.verify(
+        ctx.refreshToken,
+        process.env.REFRESH_TOKEN_SECRET
+    );
 
-    const valid = bcrypt.compareSync(body.password, user.password);
-    if (!valid) throw new Error('Invalid email or password');
+    const stored = await sessionService.getSessionByToken(ctx.refreshToken);
+    if (!stored) throw new Error('Invalid refresh token');
 
-    const tokens = generateTokens(user);
+    await sessionService.validateSessionContext(stored, ctx);
 
-    return {
-        message: 'Login successful',
-        user: { id: user.id, name: user.name, email: user.email },
-        ...tokens,
-    };
-};
+    const at = accessToken({ id: payload.sub, roleSlug: stored.role });
+    const rt = refreshToken({ id: payload.sub });
 
-exports.refreshToken = async (refreshToken) => {
-    if (!refreshToken) throw new Error('No refresh token provided');
+    await sessionService.rotateSession({
+        stored,
+        newRefreshToken: rt,
+        expiresAt: new Date(
+            Date.now() + REFRESH_EXPIRE_DAYS * 24 * 60 * 60 * 1000
+        ),
+    });
 
-    let payload;
-    try {
-        payload = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-    } catch (err) {
-        throw new Error('Invalid refresh token');
-    }
-
-    const saved = REFRESH_STORE.get(String(payload.id));
-    if (!saved || saved !== refreshToken) {
-        throw new Error('Refresh token does not match');
-    }
-
-    const tokens = generateTokens(payload);
-
-    return {
-        message: 'Token refreshed successfully',
-        ...tokens,
-    };
+    return { accessToken: at, refreshToken: rt };
 };

@@ -1,122 +1,157 @@
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const db = require('../database/db.cjs');
+const authService = require('../services/auth.service.cjs');
 
-// ==============================================
-//     GENERADOR DE TOKENS (ACCESO Y REFRESH)
-// ==============================================
+// ================
+//     REGISTER
+// ================
 
-function generateTokens(user) {
-    const accessToken = jwt.sign(
-        {
-            sub: user.id,
-            email: user.email,
-            role: user.roleSlug
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: '2h' }
-    );
-
-    const refreshToken = jwt.sign(
-        { 
-            sub: user.id 
-        },
-        process.env.REFRESH_TOKEN_SECRET,
-        { expiresIn: '7d' }
-    );
-
-    return { accessToken, refreshToken };
-}
-
-// ===========================
-//     REGISTER CONTROLLER
-// ===========================
-
-module.exports.register = async (req, res) => {
+exports.register = async (req, res) => {
     try {
-        const { email, password, firstName, lastName } = req.body;
+        const user = await authService.reg;
 
-        const existing = await db.user.findUnique({ where: { email } });
+        const exists = await pool.query(
+            'SELECT id FROM "user" WHERE email = $1',
+            [email]
+        );
 
-        if (existing) {
+        if (exists.rowCount > 0) {
             return res.status(409).json({ error: 'Email is already registered' });
         }
 
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
+        const hashPassword = await bcrypt.hash(password, 10);
 
-        const newUser = await db.user.create({
-            data: {
-                email,
-                password: hashedPassword,
-                firstName,
-                lastName,
-                roleSlug: 'global:member'
-            }
-        });
-
-        const tokens = generateTokens(newUser);
+        const { rows } = await pool.query(
+            `
+            INSERT INTO "user" (email, password, firstName, lastName, roleSlug)
+            VALUES ($1, $2, $3, $4, 'global:member')
+            RETURNING id, email, firstName, lastName, roleSlug
+            `,
+            [email, hashPassword, firstName || null, lastName || null]
+        );
 
         return res.status(201).json({
-            message: 'User registered successfully',
-            ...tokens,
-            user: {
-                id: newUser.id,
-                email: newUser.email,
-                firstName: newUser.firstName,
-                lastName: newUser.lastName,
-                role: newUser.roleSlug
-            }
+            message: "User registered successfully",
+            user: rows[0]
         });
 
     } catch (error) {
-        console.error('Registration error:', error);
-        return res.status(500).json({ error: 'Internal server error' });
+        console.error('Register error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 };
 
-// ===========================
-//      LOGIN CONTROLLER
-// ===========================
+// =============
+//     LOGIN
+// =============
 
 module.exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        const user = await db.user.findUnique({ 
-            where: { email } 
+        const { rows } = await pool.query( 
+            `SELECT * FROM user WHERE email = $1`,
+            [email]
+        );
+
+        const user = rows[0];
+        if (!user || user.disabled) {
+            return res.status(403).json({ error: 'Invalid credentials' });
+        }
+
+        const valid = await bcrypt.compare(password, user.password);
+        if (!valid) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        const accessToken = jwtUtils.generateAccessToken(user);
+        const refreshToken = jwtUtils.generateRefreshToken(user);
+        
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+        await refreshService.saveRefreshToken({
+            user_id: user.id,
+            token: refreshToken,
+            expiresAt,
+            user_agent: req.headers['user-agent'],
+            ip_address: req.ip,
+            device_name: req.headers['sec-ch-ua'] || null
         });
 
-        if (!user) {
-            return res.status(401).json({ error: 'Invalid email or password' });
-        }
-
-        if (user.disabled) {
-            return res.status(403).json({ error: 'User account is disabled' });
-        }
-
-        const match = await bcrypt.compare(password, user.password);
-
-        if (!match) {
-            return res.status(401).json({ error: 'Invalid email or password' });
-        }
-
-        const tokens = generateTokens(user);
-
-        return res.status(200).json({
-            message: 'Login successful',
-            ...tokens,
+        return res.json({
+            accessToken,
+            refreshToken,
             user: {
                 id: user.id,
                 email: user.email,
-                firstName: user.firstName,
-                lastName: user.lastName,
                 role: user.roleSlug
-            }
+            },
         });
 
     } catch (error) {
-        console.error('Login error:', error);
+        console.error(err);
         return res.status(500).json({ error: 'Internal server error' });
     }
+};
+
+// =====================
+//     REFRESH TOKEN
+// =====================
+
+module.exports.refreshToken = async (req, res) => {
+    try {
+        const { refreshToken } = req.body;
+        if (!refreshToken) {
+            return res.status(400).json({ error: 'Refresh token is required' });
+        }
+
+        const stored = await refreshService.findValidRefreshToken(refreshToken);
+        if (!stored) {
+            return res.status(401).json({ error: 'Invalid or expired refresh token' });
+        }
+
+        const payload = jwtUtils.verifyRefreshToken(refreshToken);
+
+        await refreshService.revokeRefreshToken(refreshToken);
+
+        const { rows } = await pool.query(
+            `SELECT * FROM "user" WHERE id = $1`,
+            [payload.sub]
+        );
+
+        const user = rows[0];
+
+        const newAccessToken = jwtUtils.generateAccessToken(user);
+        const newRefreshToken = jwtUtils.generateRefreshToken(user);
+
+        await refreshService.saveRefreshToken({
+            user_id: user.id,
+            token: newRefreshToken,
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            user_agent: stored.user_agent,
+            ip_address: stored.ip_address,
+            device_name: stored.device_name
+        });
+
+        return res.json({
+            accessToken: newAccessToken,
+            refreshToken: newRefreshToken
+        });
+
+    } catch (error) {
+        console.error('Refresh token error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// ==============
+//     LOGOUT
+// ==============
+
+module.exports.logout = async (req, res) => {
+    const { refreshToken } = req.body;
+
+    if (refreshToken) {
+        await refreshService.revokeRefreshToken(refreshToken);
+    }
+
+    res.json({ message: 'Logged out successfully' });
 };
