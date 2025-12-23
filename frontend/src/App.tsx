@@ -2,7 +2,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ChakraProvider } from '@chakra-ui/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { EnvironmentProvider } from './context/EnvironmentContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -10,6 +9,7 @@ import Products from './pages/Products';
 import Orders from './pages/Orders';
 import Payments from './pages/Payments';
 import Analytics from './pages/Analytics';
+import Notifications from './pages/Notifications';
 
 const queryClient = new QueryClient();
 
@@ -44,6 +44,7 @@ function AppRoutes() {
         <Route path="orders" element={<Orders />} />
         <Route path="payments" element={<Payments />} />
         <Route path="analytics" element={<Analytics />} />
+        <Route path="notifications" element={<Notifications />} />
       </Route>
 
       {/* Redirigir cualquier ruta no encontrada al login */}
@@ -57,11 +58,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ChakraProvider>
         <AuthProvider>
-          <EnvironmentProvider>
-            <Router>
-              <AppRoutes />
-            </Router>
-          </EnvironmentProvider>
+          <Router>
+            <AppRoutes />
+          </Router>
         </AuthProvider>
       </ChakraProvider>
     </QueryClientProvider>

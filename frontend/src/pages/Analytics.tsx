@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
   Box,
   Flex,
@@ -14,6 +15,9 @@ import {
   Icon,
   HStack,
   Tooltip,
+  Spinner,
+  Center,
+  useToast,
 } from '@chakra-ui/react';
 import {
   FiDollarSign,
@@ -22,9 +26,37 @@ import {
   FiPercent,
   FiArrowUp,
   FiArrowDown,
+  FiMessageCircle,
+  FiEye,
+  FiUsers,
 } from 'react-icons/fi';
-import CategoryButtons from '../components/CategoryButtons';
+import { analyticsAPI, ordersAPI, productsAPI } from '../services/api';
 import BarChart from '../components/BarChart';
+
+// Interface para las métricas de la API
+interface APIMetric {
+  id: number;
+  metric_type: string;
+  value: string;
+  date: string;
+}
+
+// Interface para órdenes
+interface APIOrder {
+  id: number;
+  total: string;
+  payment_status: string;
+  created_at: string;
+  items: { product_name: string; quantity: number; total: number }[];
+}
+
+// Interface para productos
+interface APIProduct {
+  id_producto: number;
+  nombre: string;
+  existencias: number;
+  precioventa_con_impuesto: string;
+}
 
 // Componente StatsCard con cambio porcentual
 interface StatsCardProps {
@@ -74,122 +106,153 @@ function StatsCard({ title, value, change, isPositive, icon, iconBg }: StatsCard
 }
 
 function Analytics() {
-  // Métricas principales de ventas
+  // Estados para datos de la API
+  const [metrics, setMetrics] = useState<APIMetric[]>([]);
+  const [orders, setOrders] = useState<APIOrder[]>([]);
+  const [products, setProducts] = useState<APIProduct[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const toast = useToast();
+
+  // Cargar datos desde la API
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const [metricsRes, ordersRes, productsRes] = await Promise.all([
+          analyticsAPI.getAll(),
+          ordersAPI.getAll(),
+          productsAPI.getAll(),
+        ]);
+
+        setMetrics(Array.isArray(metricsRes) ? metricsRes : []);
+        const ordersData = ordersRes.data || ordersRes;
+        setOrders(Array.isArray(ordersData) ? ordersData : []);
+        setProducts(Array.isArray(productsRes) ? productsRes : []);
+      } catch (error) {
+        console.error('Error al cargar analíticas:', error);
+        toast({
+          title: 'Error',
+          description: 'No se pudieron cargar las analíticas.',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [toast]);
+
+  // Calcular métricas de órdenes
+  const totalRevenue = orders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
+  const completedOrders = orders.filter((o) => o.payment_status === 'paid').length;
+  const totalOrders = orders.length;
+  const averageTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+  // Calcular métricas de analytics
+  const sessionsStarted = metrics.filter((m) => m.metric_type === 'session_started').length;
+  const messagesReceived = metrics.filter((m) => m.metric_type === 'message_received').length;
+  const messagesSent = metrics.filter((m) => m.metric_type === 'message_sent').length;
+  const productViews = metrics.filter((m) => m.metric_type === 'product_view').length;
+
+  // Métricas principales
   const stats = [
     {
       title: 'Ventas Totales',
-      value: '$328,000',
-      change: '+12.5%',
+      value: `$${totalRevenue.toLocaleString()}`,
+      change: `${totalOrders} órdenes`,
       isPositive: true,
       icon: FiDollarSign,
       iconBg: 'green.500',
     },
     {
       title: 'Pedidos Completados',
-      value: '248',
-      change: '+8.2%',
-      isPositive: true,
+      value: completedOrders.toString(),
+      change: `${totalOrders > 0 ? ((completedOrders / totalOrders) * 100).toFixed(1) : 0}%`,
+      isPositive: completedOrders > 0,
       icon: FiShoppingCart,
       iconBg: 'blue.500',
     },
     {
-      title: 'Ticket Promedio',
-      value: '$1,322',
-      change: '+6.3%',
+      title: 'Compra Promedio',
+      value: `$${averageTicket.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+      change: 'por orden',
       isPositive: true,
       icon: FiTrendingUp,
       iconBg: 'purple.500',
     },
     {
-      title: 'Tasa de Conversión',
-      value: '6.87%',
-      change: '+1.2%',
+      title: 'Sesiones Bot',
+      value: sessionsStarted.toString(),
+      change: `${messagesReceived} mensajes`,
       isPositive: true,
-      icon: FiPercent,
+      icon: FiUsers,
       iconBg: 'orange.500',
     },
   ];
 
-  // Datos de ventas por día (para gráfico de barras)
-  const dailySalesData = [
-    { label: 'Lun', value: 12000 },
-    { label: 'Mar', value: 15000 },
-    { label: 'Mié', value: 10000 },
-    { label: 'Jue', value: 18000 },
-    { label: 'Vie', value: 22000 },
-    { label: 'Sáb', value: 20000 },
-    { label: 'Dom', value: 12000 },
+  // Métricas de actividad del bot
+  const botMetrics = [
+    { label: 'Sesiones Iniciadas', value: sessionsStarted, icon: FiUsers, color: 'blue.500' },
+    { label: 'Mensajes Recibidos', value: messagesReceived, icon: FiMessageCircle, color: 'green.500' },
+    { label: 'Mensajes Enviados', value: messagesSent, icon: FiMessageCircle, color: 'purple.500' },
+    { label: 'Productos Vistos', value: productViews, icon: FiEye, color: 'orange.500' },
   ];
 
-  // Datos de ingresos mensuales (para gráfico de barras)
-  const monthlySalesData = [
-    { label: 'Ene', value: 45000 },
-    { label: 'Feb', value: 32000 },
-    { label: 'Mar', value: 28000 },
-    { label: 'Abr', value: 35000 },
-    { label: 'May', value: 55000 },
-    { label: 'Jun', value: 52000 },
-  ];
+  // Calcular ventas por día de la semana
+  const getDayOfWeek = (dateStr: string) => {
+    const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    return days[new Date(dateStr).getDay()];
+  };
 
-  // Datos de ventas por período
-  const salesPeriod = [
-    { label: 'Hoy', value: '$12,450' },
-    { label: 'Esta Semana', value: '$54,320' },
-    { label: 'Este Mes', value: '$67,000' },
-    { label: 'Este Año', value: '$328,000' },
-  ];
+  const salesByDay = orders.reduce((acc, order) => {
+    const day = getDayOfWeek(order.created_at);
+    acc[day] = (acc[day] || 0) + (parseFloat(order.total) || 0);
+    return acc;
+  }, {} as Record<string, number>);
 
-  // Productos más vendidos
-  const topProducts = [
-    {
-      position: 1,
-      name: 'Camiseta Básica',
-      units: '1240 uds',
-      revenue: '$15,500',
-      trend: 'up',
-    },
-    {
-      position: 2,
-      name: 'Audífonos BT Pro',
-      units: '852 uds',
-      revenue: '$40,140',
-      trend: 'up',
-    },
-    {
-      position: 3,
-      name: 'Reloj Inteligente',
-      units: '678 uds',
-      revenue: '$61,000',
-      trend: 'up',
-    },
-    {
-      position: 4,
-      name: 'Zapatillas Deportivas',
-      units: '524 uds',
-      revenue: '$34,060',
-      trend: 'down',
-    },
-    {
-      position: 5,
-      name: 'Botella Térmica',
-      units: '480 uds',
-      revenue: '$8,880',
-      trend: 'up',
-    },
-  ];
+  const dailySalesData = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => ({
+    label: day,
+    value: salesByDay[day] || 0,
+  }));
+
+  // Calcular productos más vendidos
+  const productSales: Record<string, { name: string; units: number; revenue: number }> = {};
+  orders.forEach((order) => {
+    order.items?.forEach((item) => {
+      if (!productSales[item.product_name]) {
+        productSales[item.product_name] = { name: item.product_name, units: 0, revenue: 0 };
+      }
+      productSales[item.product_name].units += item.quantity;
+      productSales[item.product_name].revenue += item.total;
+    });
+  });
+
+  const topProducts = Object.values(productSales)
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5)
+    .map((p, i) => ({
+      position: i + 1,
+      name: p.name,
+      units: `${p.units} uds`,
+      revenue: `$${p.revenue.toLocaleString()}`,
+      trend: 'up' as const,
+    }));
+
+  // Mostrar spinner mientras carga
+  if (isLoading) {
+    return (
+      <Center h="50vh">
+        <Spinner size="xl" color="purple.500" thickness="4px" />
+      </Center>
+    );
+  }
 
   return (
     <Box>
-      <Box
-        minH="0vh"
-        w="100vw"
-        bg="gray.50"
-        display="flex"
-        alignItems="center"
-        justifyContent="center"
-        p={4}
-      ></Box>
-
       {/* Encabezado */}
       <Flex justify="space-between" align="center" mb={6}>
         <Box>
@@ -200,7 +263,6 @@ function Analytics() {
             Métricas y reportes de rendimiento
           </Text>
         </Box>
-        <CategoryButtons />
       </Flex>
 
       {/* Tarjetas de métricas principales */}
@@ -210,9 +272,9 @@ function Analytics() {
         ))}
       </Grid>
 
-      {/* Ventas por período */}
+      {/* Métricas del Bot */}
       <Grid templateColumns="repeat(4, 1fr)" gap={4} mb={6}>
-        {salesPeriod.map((period, index) => (
+        {botMetrics.map((metric, index) => (
           <Box
             key={index}
             bg="purple.50"
@@ -220,35 +282,29 @@ function Analytics() {
             borderRadius="lg"
             boxShadow="sm"
             borderLeft="4px"
-            borderColor="purple.500"
+            borderColor={metric.color}
           >
-            <Text fontSize="sm" color="gray.600" mb={1}>
-              {period.label}
-            </Text>
-            <Text fontSize="xl" fontWeight="bold" color="gray.800">
-              {period.value}
-            </Text>
+            <HStack spacing={3}>
+              <Icon as={metric.icon} color={metric.color} boxSize={5} />
+              <Box>
+                <Text fontSize="sm" color="gray.600">
+                  {metric.label}
+                </Text>
+                <Text fontSize="xl" fontWeight="bold" color="gray.800">
+                  {metric.value}
+                </Text>
+              </Box>
+            </HStack>
           </Box>
         ))}
       </Grid>
 
-      {/* Gráficos de barras */}
-      <Grid templateColumns="repeat(2, 1fr)" gap={6} mb={6}>
-        {/* Gráfico de Ventas Diarias */}
+      {/* Gráfico de Ventas por Día */}
+      <Grid templateColumns="1fr" gap={6} mb={6}>
         <BarChart
-          title="Ventas Diarias"
-          subtitle="Última semana"
+          title="Ventas por Día de la Semana"
+          subtitle="Distribución de ventas"
           data={dailySalesData}
-          barColor="purple.400"
-          height={280}
-          showValues={false}
-        />
-
-        {/* Gráfico de Ingresos Mensuales */}
-        <BarChart
-          title="Ingresos Mensuales"
-          subtitle="Últimos 6 meses"
-          data={monthlySalesData}
           barColor="purple.400"
           height={280}
           showValues={false}
@@ -261,7 +317,7 @@ function Analytics() {
           Productos Más Vendidos
         </Heading>
         <Text fontSize="sm" color="gray.600" mb={4}>
-          Top 5 del mes
+          Top 5 por ingresos
         </Text>
 
         <Table variant="simple">
@@ -275,127 +331,67 @@ function Analytics() {
             </Tr>
           </Thead>
           <Tbody>
-            {topProducts.map((product) => (
-              <Tr key={product.position} _hover={{ bg: 'gray.50' }}>
-                {/* Posición */}
-                <Td>
-                  <Tooltip
-                    label={`Posición #${product.position} en ventas`}
-                    placement="top"
-                    hasArrow
-                    bg="gray.800"
-                    color="white"
-                    fontSize="sm"
-                    fontWeight="bold"
-                    px={3}
-                    py={2}
-                    borderRadius="md"
-                    openDelay={0}
-                  >
+            {topProducts.length > 0 ? (
+              topProducts.map((product) => (
+                <Tr key={product.position} _hover={{ bg: 'gray.50' }}>
+                  <Td>
                     <Badge
                       colorScheme={product.position === 1 ? 'purple' : 'gray'}
                       fontSize="md"
                       px={3}
                       py={1}
                       borderRadius="full"
-                      cursor="pointer"
                     >
                       {product.position}
                     </Badge>
-                  </Tooltip>
-                </Td>
-
-                {/* Producto */}
-                <Td>
-                  <Tooltip
-                    label={`Producto: ${product.name}`}
-                    placement="top"
-                    hasArrow
-                    bg="gray.800"
-                    color="white"
-                    fontSize="sm"
-                    fontWeight="bold"
-                    px={3}
-                    py={2}
-                    borderRadius="md"
-                    openDelay={0}
-                  >
-                    <Text fontWeight="medium" color="gray.700" cursor="pointer">
+                  </Td>
+                  <Td>
+                    <Text fontWeight="medium" color="gray.700">
                       {product.name}
                     </Text>
-                  </Tooltip>
-                </Td>
-
-                {/* Unidades Vendidas */}
-                <Td>
-                  <Tooltip
-                    label={`Unidades vendidas: ${product.units}`}
-                    placement="top"
-                    hasArrow
-                    bg="blue.600"
-                    color="white"
-                    fontSize="sm"
-                    fontWeight="bold"
-                    px={3}
-                    py={2}
-                    borderRadius="md"
-                    openDelay={0}
-                  >
-                    <Text color="gray.600" cursor="pointer">
-                      {product.units}
-                    </Text>
-                  </Tooltip>
-                </Td>
-
-                {/* Valor Total */}
-                <Td>
-                  <Tooltip
-                    label={`Ingresos generados: ${product.revenue}`}
-                    placement="top"
-                    hasArrow
-                    bg="green.600"
-                    color="white"
-                    fontSize="md"
-                    fontWeight="bold"
-                    px={4}
-                    py={2}
-                    borderRadius="md"
-                    openDelay={0}
-                  >
-                    <Text fontWeight="semibold" color="gray.800" cursor="pointer">
+                  </Td>
+                  <Td>
+                    <Text color="gray.600">{product.units}</Text>
+                  </Td>
+                  <Td>
+                    <Text fontWeight="semibold" color="gray.800">
                       {product.revenue}
                     </Text>
-                  </Tooltip>
-                </Td>
-
-                {/* Tendencia */}
-                <Td>
-                  <Tooltip
-                    label={`Tendencia: ${product.trend === 'up' ? 'En aumento' : 'En descenso'}`}
-                    placement="top"
-                    hasArrow
-                    bg={product.trend === 'up' ? 'green.600' : 'red.500'}
-                    color="white"
-                    fontSize="sm"
-                    fontWeight="bold"
-                    px={3}
-                    py={2}
-                    borderRadius="md"
-                    openDelay={0}
-                  >
-                    <Box cursor="pointer" display="inline-block">
-                      <Icon
-                        as={product.trend === 'up' ? FiArrowUp : FiArrowDown}
-                        color={product.trend === 'up' ? 'green.500' : 'red.500'}
-                        boxSize={5}
-                      />
-                    </Box>
-                  </Tooltip>
+                  </Td>
+                  <Td>
+                    <Icon
+                      as={product.trend === 'up' ? FiArrowUp : FiArrowDown}
+                      color={product.trend === 'up' ? 'green.500' : 'red.500'}
+                      boxSize={5}
+                    />
+                  </Td>
+                </Tr>
+              ))
+            ) : (
+              <Tr>
+                <Td colSpan={5} textAlign="center" py={8}>
+                  <Text color="gray.500" fontSize="lg">
+                    No hay datos de ventas disponibles
+                  </Text>
                 </Td>
               </Tr>
-            ))}
+            )}
           </Tbody>
         </Table>
+      </Box>
+
+      {/* Información adicional */}
+      <Box
+        mt={6}
+        p={4}
+        bg="blue.50"
+        borderRadius="md"
+        borderLeft="4px"
+        borderColor="blue.500"
+      >
+        <Text fontSize="sm" color="blue.800">
+          Las métricas se calculan en tiempo real desde las órdenes y la actividad del bot de WhatsApp.
+        </Text>
       </Box>
     </Box>
   );

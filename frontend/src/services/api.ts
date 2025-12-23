@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // URL base del backend (cambiar según tu configuración)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://ventas-backend-gyyx.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://ventas-backend-gyyx.onrender.com/api';
 
 // Crear instancia de axios con configuración base
 const api = axios.create({
@@ -111,25 +111,149 @@ export const productsAPI = {
     const response = await api.get('/products', { params });
     return response.data;
   },
-  
+
   // Obtener un producto por ID
   getById: async (id: number) => {
     const response = await api.get(`/products/${id}`);
     return response.data;
   },
-  
-  // Crear un producto
-  create: async (productData: any) => {
-    const response = await api.post('/products', productData);
+
+  // Crear un producto - campos según tabla products de PostgreSQL
+  create: async (productData: {
+    nombre: string;
+    referencia?: string;
+    codigo_barras?: string;
+    categoria?: string;
+    marca?: string;
+    existencias?: number;
+    precioventa_con_impuesto?: number;
+    precio_venta_base?: number;
+    precio_compra?: number;
+    costo?: number;
+    stock_minimo?: number;
+    descuento_maximo_ps?: number;
+    impuesto?: number;
+    ubicacion?: string;
+    proveedor?: string;
+    nota?: string;
+  }) => {
+    // Construir objeto con todos los campos que espera el backend
+    const fullProductData = {
+      nombre: productData.nombre,
+      referencia: productData.referencia || null,
+      codigo_barras: productData.codigo_barras || null,
+      invima: null,
+      cum: null,
+      codigo_producto_dian: null,
+      existencias: productData.existencias || 0,
+      impuesto: productData.impuesto || 0,
+      precioventa_con_impuesto: String(productData.precioventa_con_impuesto || 0),
+      precio_venta_base: String(productData.precio_venta_base || productData.precioventa_con_impuesto || 0),
+      precio_venta_minimo: '0',
+      descuento_maximo_ps: String(productData.descuento_maximo_ps || 0),
+      precio_compra: String(productData.precio_compra || 0),
+      precio_compraipm: '0',
+      total_impoconsumo: '0',
+      total_estampilla: '0',
+      icui: '0',
+      ibua: '0',
+      costo: String(productData.costo || 0),
+      stock_minimo: productData.stock_minimo || 1,
+      es_ingrediente: false,
+      manejo_bascula: false,
+      utilidad: '0',
+      mostrar_tienda: true,
+      categoria: productData.categoria || null,
+      marca: productData.marca || null,
+      codigo_cuenta: null,
+      precio1: '0',
+      precio2: '0',
+      precio3: '0',
+      precio4: '0',
+      ubicacion: productData.ubicacion || null,
+      proveedor: productData.proveedor || null,
+      nit_proveedor: null,
+      url_imagen: null,
+      nota: productData.nota || null,
+      tipo_producto: 'producto',
+      imagenes: null,
+      videos: null,
+      realizar_pedido_solo_existencia: false,
+      vender_solo_existencia: false,
+    };
+    console.log('Enviando producto:', fullProductData);
+    const response = await api.post('/products', fullProductData);
     return response.data;
   },
-  
-  // Actualizar un producto
-  update: async (id: number, productData: any) => {
-    const response = await api.put(`/products/${id}`, productData);
+
+  // Actualizar un producto - campos según tabla products de PostgreSQL
+  update: async (id: number, productData: {
+    nombre: string;
+    referencia?: string;
+    codigo_barras?: string;
+    categoria?: string;
+    marca?: string;
+    existencias?: number;
+    precioventa_con_impuesto?: number;
+    precio_venta_base?: number;
+    precio_compra?: number;
+    costo?: number;
+    stock_minimo?: number;
+    descuento_maximo_ps?: number;
+    impuesto?: number;
+    ubicacion?: string;
+    proveedor?: string;
+    nota?: string;
+  }) => {
+    // Construir objeto con todos los campos que espera el backend
+    const fullProductData = {
+      nombre: productData.nombre,
+      referencia: productData.referencia || null,
+      codigo_barras: productData.codigo_barras || null,
+      invima: null,
+      cum: null,
+      codigo_producto_dian: null,
+      existencias: productData.existencias || 0,
+      impuesto: productData.impuesto || 0,
+      precioventa_con_impuesto: String(productData.precioventa_con_impuesto || 0),
+      precio_venta_base: String(productData.precio_venta_base || productData.precioventa_con_impuesto || 0),
+      precio_venta_minimo: '0',
+      descuento_maximo_ps: String(productData.descuento_maximo_ps || 0),
+      precio_compra: String(productData.precio_compra || 0),
+      precio_compraipm: '0',
+      total_impoconsumo: '0',
+      total_estampilla: '0',
+      icui: '0',
+      ibua: '0',
+      costo: String(productData.costo || 0),
+      stock_minimo: productData.stock_minimo || 1,
+      es_ingrediente: false,
+      manejo_bascula: false,
+      utilidad: '0',
+      mostrar_tienda: true,
+      categoria: productData.categoria || null,
+      marca: productData.marca || null,
+      codigo_cuenta: null,
+      precio1: '0',
+      precio2: '0',
+      precio3: '0',
+      precio4: '0',
+      ubicacion: productData.ubicacion || null,
+      proveedor: productData.proveedor || null,
+      nit_proveedor: null,
+      url_imagen: null,
+      nota: productData.nota || null,
+      tipo_producto: 'producto',
+      imagenes: null,
+      videos: null,
+      realizar_pedido_solo_existencia: false,
+      vender_solo_existencia: false,
+    };
+    console.log('Actualizando producto:', fullProductData);
+    const response = await api.put(`/products/${id}`, fullProductData);
     return response.data;
   },
-  
+
   // Eliminar un producto
   delete: async (id: number) => {
     const response = await api.delete(`/products/${id}`);
@@ -147,19 +271,19 @@ export const ordersAPI = {
     const response = await api.get('/orders', { params });
     return response.data;
   },
-  
+
   // Obtener un pedido por ID
   getById: async (id: number) => {
     const response = await api.get(`/orders/${id}`);
     return response.data;
   },
-  
+
   // Crear un pedido
   create: async (orderData: any) => {
     const response = await api.post('/orders', orderData);
     return response.data;
   },
-  
+
   // Actualizar estado de un pedido
   updateStatus: async (id: number, status: string) => {
     const response = await api.patch(`/orders/${id}/status`, { status });
@@ -192,25 +316,25 @@ export const paymentsAPI = {
 };
 
 // ============================================
-// DASHBOARD / ESTADÍSTICAS
+// ANALYTICS / ESTADÍSTICAS
 // ============================================
 
-export const statsAPI = {
-  // Obtener estadísticas del dashboard
-  getDashboard: async () => {
-    const response = await api.get('/stats/dashboard');
+export const analyticsAPI = {
+  // Obtener todas las métricas
+  getAll: async () => {
+    const response = await api.get('/analytics');
     return response.data;
   },
-  
-  // Obtener analíticas
-  getAnalytics: async () => {
-    const response = await api.get('/stats/analytics');
+
+  // Obtener métricas por tipo
+  getByType: async (metricType: string) => {
+    const response = await api.get(`/analytics/${metricType}`);
     return response.data;
   },
-  
-  // Obtener ventas por período
-  getSalesByPeriod: async (period: 'day' | 'week' | 'month' | 'year') => {
-    const response = await api.get(`/stats/sales/${period}`);
+
+  // Crear una métrica
+  create: async (data: { metric_type: string; value: number }) => {
+    const response = await api.post('/analytics', data);
     return response.data;
   },
 };

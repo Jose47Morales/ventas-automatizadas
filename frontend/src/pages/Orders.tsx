@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Flex,
@@ -22,6 +22,10 @@ import {
   VStack,
   Icon,
   Divider,
+  Spinner,
+  Center,
+  Select,
+  useToast,
 } from '@chakra-ui/react';
 import { ChevronDownIcon } from '@chakra-ui/icons';
 import {
@@ -34,22 +38,46 @@ import {
   FiCalendar,
   FiPackage,
   FiDollarSign,
+  FiChevronLeft,
+  FiChevronRight,
+  FiChevronsLeft,
+  FiChevronsRight,
 } from 'react-icons/fi';
-import { useEnvironment } from '../context/EnvironmentContext';
-import CategoryButtons from '../components/CategoryButtons';
-import type { Environment } from '../context/EnvironmentContext';
+import { ordersAPI } from '../services/api';
 
-// Interface para las órdenes
+// Interface para los items de la orden de la API
+interface APIOrderItem {
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  total: number;
+}
+
+// Interface para las órdenes de la API
+interface APIOrder {
+  id: number;
+  client_name: string;
+  client_phone: string;
+  total: string;
+  payment_status: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  items: APIOrderItem[];
+}
+
+// Interface para las órdenes del componente
 interface Order {
   id: string;
   client: string;
   contact: string;
   products: string;
-  environment: Environment;
   quantity: number;
   total: number;
   status: string;
   date: string;
+  items: APIOrderItem[];
 }
 
 // Componente StatCard para las métricas superiores
@@ -92,12 +120,69 @@ function Orders() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
+  // Estado para los pedidos cargados desde la API
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+
+  // Estado para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+
+  // Toast para notificaciones
+  const toast = useToast();
+
+  // Función para mapear estado de pago de la API al español
+  const mapPaymentStatus = (status: string): string => {
+    const statusMap: Record<string, string> = {
+      pending: 'Pendiente',
+      paid: 'Pagado',
+      partial: 'Pago Parcial',
+    };
+    return statusMap[status] || status;
+  };
+
+  // Cargar pedidos desde la API
+  useEffect(() => {
+    const fetchOrders = async () => {
+      setIsLoadingOrders(true);
+      try {
+        const response = await ordersAPI.getAll();
+        const data: APIOrder[] = response.data || response;
+
+        // Mapear los datos de la API al formato del componente
+        const mappedOrders: Order[] = data.map((o) => ({
+          id: `#${o.id}`,
+          client: o.client_name || 'Sin nombre',
+          contact: o.client_phone || 'Sin contacto',
+          products: o.items.map((item) => item.product_name).join(', '),
+          quantity: o.items.reduce((sum, item) => sum + item.quantity, 0),
+          total: parseFloat(o.total) || 0,
+          status: mapPaymentStatus(o.payment_status),
+          date: new Date(o.created_at).toLocaleDateString('es-CO'),
+          items: o.items,
+        }));
+        setOrders(mappedOrders);
+      } catch (error) {
+        console.error('Error al cargar pedidos:', error);
+        toast({
+          title: 'Error',
+          description: 'No se pudieron cargar los pedidos.',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+      } finally {
+        setIsLoadingOrders(false);
+      }
+    };
+
+    fetchOrders();
+  }, [toast]);
+
   // Función para abrir el modal con los detalles de la orden
   const handleViewDetails = (order: Order) => {
-    console.log('Orden seleccionada:', order);
     setSelectedOrder(order);
     setIsModalOpen(true);
-    console.log('Modal abierto');
   };
 
   // Función para cerrar el modal
@@ -106,88 +191,24 @@ function Orders() {
     setSelectedOrder(null);
   };
 
-  // Contexto del entorno
-  const { currentEnvironment } = useEnvironment();
-
-  // Datos de ejemplo de pedidos con entorno
-  const orders: Order[] = [
-    {
-      id: '#1001',
-      client: 'Comercial García S.A.',
-      contact: '+1 (555) 123-4567',
-      products: 'Funda Samsung Galaxy S24, Cargador Rápido USB-C',
-      environment: 'Android',
-      quantity: 150,
-      total: 11248.5,
-      status: 'Pagado',
-      date: '11/11/2025',
-    },
-    {
-      id: '#1002',
-      client: 'Distribuidora Central',
-      contact: '+1 (555) 234-5678',
-      products: 'Funda iPhone 15 Pro, Cable Lightning',
-      environment: 'iPhone',
-      quantity: 500,
-      total: 5000.0,
-      status: 'Pendiente',
-      date: '12/11/2025',
-    },
-    {
-      id: '#1003',
-      client: 'Mayorista López',
-      contact: '+1 (555) 345-6789',
-      products: 'Audífonos Bluetooth Pro, Mochila Urbana',
-      environment: 'Accesorios',
-      quantity: 96,
-      total: 4632.0,
-      status: 'Pagado',
-      date: '13/11/2025',
-    },
-    {
-      id: '#1004',
-      client: 'Grupo Empresarial Norte',
-      contact: '+1 (555) 456-7890',
-      products: 'Soporte para Auto, Protector de Pantalla',
-      environment: 'Cacharrería',
-      quantity: 200,
-      total: 3145.0,
-      status: 'Pago Parcial',
-      date: '13/11/2025',
-    },
-    {
-      id: '#1005',
-      client: 'Tiendas El Ahorro',
-      contact: '+1 (555) 567-8901',
-      products: 'Cargador Rápido USB-C, Funda Samsung',
-      environment: 'Android',
-      quantity: 180,
-      total: 6876.0,
-      status: 'Pendiente',
-      date: '12/11/2025',
-    },
-    {
-      id: '#1006',
-      client: 'Tech Store Premium',
-      contact: '+1 (555) 678-9012',
-      products: 'Cable Lightning Original, Funda iPhone 15',
-      environment: 'iPhone',
-      quantity: 120,
-      total: 8540.0,
-      status: 'Pagado',
-      date: '14/11/2025',
-    },
-  ];
-
   // Opciones de filtro de estado
   const statusOptions = ['Todos', 'Pagado', 'Pendiente', 'Pago Parcial'];
 
-  // Filtrar pedidos según el estado seleccionado y el entorno
+  // Filtrar pedidos según el estado seleccionado
   const filteredOrders = orders.filter((order) => {
-    const matchesStatus = selectedStatus === 'Todos' || order.status === selectedStatus;
-    const matchesEnvironment = currentEnvironment === 'Todos' || order.environment === currentEnvironment;
-    return matchesStatus && matchesEnvironment;
+    return selectedStatus === 'Todos' || order.status === selectedStatus;
   });
+
+  // Lógica de paginación
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+
+  // Resetear a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedStatus]);
 
   // Calcular métricas
   const totalOrders = orders.length;
@@ -208,23 +229,22 @@ function Orders() {
     }
   };
 
+  // Mostrar spinner mientras carga
+  if (isLoadingOrders) {
+    return (
+      <Center h="50vh">
+        <Spinner size="xl" color="purple.500" thickness="4px" />
+      </Center>
+    );
+  }
+
   return (
     <Box>
-        <Box
-      minH="0vh"
-      w="100vw"
-      bg="gray.50"
-      display="flex"
-      alignItems="center"
-      justifyContent="center"
-      p={4}
-    ></Box>
       {/* Encabezado */}
       <Flex justify="space-between" align="center" mb={6}>
         <Heading size="lg" color="gray.800">
            Panel de Órdenes
         </Heading>
-        <CategoryButtons />
       </Flex>
 
       {/* Tarjetas de métricas */}
@@ -285,7 +305,7 @@ function Orders() {
       <Box bg="purple.50" borderRadius="lg" boxShadow="sm" overflow="hidden">
         <Box p={4} borderBottom="1px" borderColor="gray.200">
           <Text fontSize="md" fontWeight="semibold" color="gray.800">
-            Listado de Pedidos ({filteredOrders.length})
+            Listado de Pedidos - Mostrando {startIndex + 1}-{Math.min(endIndex, filteredOrders.length)} de {filteredOrders.length}
           </Text>
         </Box>
 
@@ -304,8 +324,8 @@ function Orders() {
             </Tr>
           </Thead>
           <Tbody>
-            {filteredOrders.length > 0 ? (
-              filteredOrders.map((order) => (
+            {paginatedOrders.length > 0 ? (
+              paginatedOrders.map((order) => (
                 <Tr key={order.id}>
                   {/* ID */}
                   <Td fontWeight="bold" color="blue.600">
@@ -386,6 +406,95 @@ function Orders() {
           </Tbody>
         </Table>
       </Box>
+
+      {/* Controles de paginación */}
+      {totalPages > 1 && (
+        <Flex justify="space-between" align="center" mt={4} p={4} bg="white" borderRadius="lg" boxShadow="sm">
+          <HStack spacing={2}>
+            <Text fontSize="sm" color="gray.600">Pedidos por página:</Text>
+            <Select
+              size="sm"
+              w="80px"
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </Select>
+          </HStack>
+
+          <HStack spacing={2}>
+            <IconButton
+              aria-label="Primera página"
+              icon={<FiChevronsLeft />}
+              size="sm"
+              variant="outline"
+              onClick={() => setCurrentPage(1)}
+              isDisabled={currentPage === 1}
+            />
+            <IconButton
+              aria-label="Página anterior"
+              icon={<FiChevronLeft />}
+              size="sm"
+              variant="outline"
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              isDisabled={currentPage === 1}
+            />
+
+            <HStack spacing={1}>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                return (
+                  <Button
+                    key={pageNum}
+                    size="sm"
+                    variant={currentPage === pageNum ? 'solid' : 'outline'}
+                    colorScheme={currentPage === pageNum ? 'purple' : 'gray'}
+                    onClick={() => setCurrentPage(pageNum)}
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+            </HStack>
+
+            <IconButton
+              aria-label="Página siguiente"
+              icon={<FiChevronRight />}
+              size="sm"
+              variant="outline"
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              isDisabled={currentPage === totalPages}
+            />
+            <IconButton
+              aria-label="Última página"
+              icon={<FiChevronsRight />}
+              size="sm"
+              variant="outline"
+              onClick={() => setCurrentPage(totalPages)}
+              isDisabled={currentPage === totalPages}
+            />
+          </HStack>
+
+          <Text fontSize="sm" color="gray.600">
+            Página {currentPage} de {totalPages}
+          </Text>
+        </Flex>
+      )}
 
       {/* Información adicional */}
       <Box
