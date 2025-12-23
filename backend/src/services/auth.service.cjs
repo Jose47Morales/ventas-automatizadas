@@ -1,129 +1,75 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { pool } = require('../database/db.cjs');
+const sessionService = require('./sessions.service.cjs')
 
 const ACCESS_EXPIRE = '15m';
-const REFRESH_EXPIRE = '7d';
+const REFRESH_EXPIRE_DAYS = 7;
 
-const REFRESH_STORE = new Map();
+const accessToken = (user) =>
+    jwt.sign({ sub: user.id, role: user.roleSlug }, process.env.JWT_SECRET, {
+        expiresIn: ACCESS_EXPIRE,
+    });
 
-function generateTokens(user) {
-    const payload = { 
-        id: user.id, 
-        role: user.roleSlug,
-    };
+const refreshToken = (user) =>
+    jwt.sign({ sub: user.id }, process.env.REFRESH_TOKEN_SECRET, {
+        expiresIn: `${REFRESH_EXPIRE_DAYS}d`,
+    });
 
-    const accessToken = jwt.sign(
-        payload, 
-        process.env.JWT_SECRET,
-        { expiresIn: ACCESS_EXPIRE }
-    );
+exports.login = async (ctx) => {
+    const { email, password } = ctx;
 
-    const refreshToken = jwt.sign(
-        payload, 
-        process.env.REFRESH_TOKEN_SECRET,
-        { expiresIn: REFRESH_EXPIRE }
-    );
-
-    REFRESH_STORE.set(String(user.id), refreshToken);
-
-    return { accessToken, refreshToken };
-}
-
-exports.register = async (body) => {
-    const { email, password, firstName, lastName } = body;
-
-    const exists = await pool.query(
-        'SELECT id FROM users WHERE email = $1', 
+    const { rows } = await pool.query(
+        'SELECT * FROM "user" WHERE email = $1',
         [email]
     );
 
-    if (exists.rowCount > 0) {
-        throw new Error('Email is already registered');
+    const user = rows[0];
+    if (!user || user.disabled || user.compromised) {
+        throw new Error('Invalid credentials');
     }
 
-    const hashedPassword = bcrypt.hashSync(password, 10);
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) throw new Error('Invalid credentials');
 
-    const result = await pool.query(
-        `
-        INSERT INTO user (email, password, firstName, lastName) 
-        VALUES ($1, $2, $3, $4) 
-        RETURNING id, name, email, firstName, lastName
-        `,
-        [email, hashedPassword, firstName || null, lastName || null]
+    const at = accessToken(user);
+    const rt = refreshToken(user);
+
+    const expiresAt = new Date(
+        Date.now() + REFRESH_EXPIRE_DAYS * 24 * 60 * 60 * 1000
     );
 
-    const user = result.rows[0];
+    await sessionService.createSession({
+        userId: user.id,
+        refreshToken: rt,
+        expiresAt,
+        ...ctx,
+    });
 
-    return {
-        message: 'User registered successfully',
-        user,
-    };
+    return { accessToken: at, refreshToken: rt };
 };
 
-exports.login = async (body) => {
-    const { email, password } = body;
-
-    const result = await pool.query(
-        `
-        SELECT id, email, password, firstName, lastName, roleSlug, disabled 
-        FROM user 
-        WHERE email = $1
-        `, 
-        [email]
+exports.refreshToken = async (ctx) => {
+    const payload = jwt.verify(
+        ctx.refreshToken,
+        process.env.REFRESH_TOKEN_SECRET
     );
 
-    if (result.rows.length === 0) {
-        throw new Error('Invalid email or password');
-    }
+    const stored = await sessionService.getSessionByToken(ctx.refreshToken);
+    if (!stored) throw new Error('Invalid refresh token');
 
-    const user = result.rows[0];
+    await sessionService.validateSessionContext(stored, ctx);
 
-    if (user.disabled) {
-        throw new Error('User account is disabled');
-    }
+    const at = accessToken({ id: payload.sub, roleSlug: stored.role });
+    const rt = refreshToken({ id: payload.sub });
 
-    const valid = bcrypt.compareSync(password, user.password);
-    if (!valid) {
-        throw new Error('Invalid email or password');
-    }
+    await sessionService.rotateSession({
+        stored,
+        newRefreshToken: rt,
+        expiresAt: new Date(
+            Date.now() + REFRESH_EXPIRE_DAYS * 24 * 60 * 60 * 1000
+        ),
+    });
 
-    const tokens = generateTokens(user);
-
-    return {
-        message: 'Login successful',
-        user: { 
-            id: user.id, 
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            role: user.roleSlug,
-        },
-        ...tokens,
-    };
-};
-
-exports.refreshToken = async (refreshToken) => {
-    if (!refreshToken) {
-        throw new Error('No refresh token provided');
-    }
-    
-    let payload;
-    try {
-        payload = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-    } catch {
-        throw new Error('Invalid refresh token');
-    }
-
-    const saved = REFRESH_STORE.get(String(payload.id));
-    if (!saved || saved !== refreshToken) {
-        throw new Error('Refresh token does not match');
-    }
-
-    const tokens = generateTokens(payload);
-
-    return {
-        message: 'Token refreshed successfully',
-        ...tokens,
-    };
+    return { accessToken: at, refreshToken: rt };
 };

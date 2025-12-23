@@ -94,6 +94,14 @@ app.use('/api/chat-sessions', chatSessionsRouter);
 const analyticsRouter = require('./src/routes/analytics.routes.cjs');
 app.use('/api/analytics', analyticsRouter);
 
+// Endpoints para sessions
+const sessionRouter = require('./src/routes/sessions.routes.cjs');
+app.use('/sessions', sessionRouter);
+
+// Enpoints para auth
+const authRouter = require('./src/routes/auth.routes.cjs');
+app.use('/auth', authRouter);
+
 // Endpoint para registrar logs
 app.post('/logs', async (req, res) => {
     try {
