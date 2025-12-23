@@ -100,7 +100,7 @@ module.exports = {
     },
 
     updateProduct: async (data) => {
-        const { id_producto, nombre, referencia, codgigo_barras, invima, cum, codigo_producto_dian,
+        const { id_producto, nombre, referencia, codigo_barras, invima, cum, codigo_producto_dian,
             existencias, impuesto, precioventa_con_impuesto, precio_venta_base,
             precio_venta_minimo, descuento_maximo_ps, precio_compra, precio_compraipm,
             total_impoconsumo, total_estampilla, icui, ibua, costo, stock_minimo,
@@ -111,7 +111,7 @@ module.exports = {
 
         const update = await pool.query(
             `UPDATE products SET 
-                nombre = $1, referencia = $2, codgigo_barras = $3, invima = $4, cum = $5, codigo_producto_dian = $6,
+                nombre = $1, referencia = $2, codigo_barras = $3, invima = $4, cum = $5, codigo_producto_dian = $6,
                 existencias = $7, impuesto = $8, precioventa_con_impuesto = $9, precio_venta_base = $10,
                 precio_venta_minimo = $11, descuento_maximo_ps = $12, precio_compra = $13, precio_compraipm = $14,
                 total_impoconsumo = $15, total_estampilla = $16, icui = $17, ibua = $18, costo = $19, stock_minimo = $20,
@@ -120,7 +120,7 @@ module.exports = {
                 nit_proveedor = $34, url_imagen = $35, nota = $36, tipo_producto = $37, imagenes = $38, videos = $39, realizar_pedido_solo_existencia = $40,
                 vender_solo_existencia = $41
             WHERE id_producto = $42 RETURNING *`,
-            [nombre, referencia, codgigo_barras, invima, cum, codigo_producto_dian,
+            [nombre, referencia, codigo_barras, invima, cum, codigo_producto_dian,
             existencias, impuesto, precioventa_con_impuesto, precio_venta_base,
             precio_venta_minimo, descuento_maximo_ps, precio_compra, precio_compraipm,
             total_impoconsumo, total_estampilla, icui, ibua, costo, stock_minimo,
