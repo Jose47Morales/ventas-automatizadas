@@ -38,7 +38,11 @@ exports.getSessionByToken = async (token) => {
 };
 
 exports.validateSessionContext = async (stored, ctx) => {
-    const fingerprint = buildFingerprint(ctx);
+    const fingerprint = buildFingerprint({
+        user_agent: ctx.user_agent,
+        ip_address: ctx.ip_address,
+        device_name: ctx.device_name,
+    });
 
     if (
         stored.revoked ||
@@ -51,11 +55,7 @@ exports.validateSessionContext = async (stored, ctx) => {
     }
 };
 
-exports.rotateSession = async ({
-    stored, 
-    newRefreshToken,
-    expiresAt,
-}) => {
+exports.rotateSession = async ({ stored, newRefreshToken, expiresAt }) => {
     await pool.query(
         `
         UPDATE auth_refresh_tokens
