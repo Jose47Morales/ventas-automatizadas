@@ -139,7 +139,8 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 # PostgreSQL DB files
-pgdata/
+exportar_productos_utf8.csv
+exportar_productos.csv
 
 # n8n files
 n8n_data/
