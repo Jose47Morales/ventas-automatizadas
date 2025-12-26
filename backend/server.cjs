@@ -1,30 +1,33 @@
 // backend/server.cjs
-require('dotenv').config();
+
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
+
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const { Pool } = require('pg');
-const swagger = require('./src/swagger/swagger.cjs');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 const PORT = process.env.PORT || 4000;
 
 // Configurar la conexión a PostgreSQL usando variables de entorno
 const pool = new Pool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT || 5432,
-    ssl: { rejectUnauthorized: false }, // Para servicios gestionados
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL
+        ? { rejectUnauthorized: false }
+        : false,
+    idleTimeoutMillis: 30000
 });
 
-pool.connect()
-    .then(() => console.log('Conectado a la base de datos correctamente'))
-    .catch(err => console.error('Error conectando a la base de datos:', err));
+pool.on('error', (err) => {
+    console.error('Unexpected PG pool error:', err);
+});
 
 // Endpoint de verificación de WhatsApp
 app.get('/webhook/whatsapp-webhook', (req, res) => {
@@ -141,7 +144,7 @@ app.post('/logs', async (req, res) => {
 });
 
 // Iniciar servidor
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor corriendo en puerto ${PORT}`);
 });
 
