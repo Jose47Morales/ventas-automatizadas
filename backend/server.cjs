@@ -19,14 +19,26 @@ const PORT = process.env.PORT || 4000;
 // Configurar la conexión a PostgreSQL usando variables de entorno
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL
-        ? { rejectUnauthorized: false }
-        : false,
-    idleTimeoutMillis: 30000
+    ssl: { rejectUnauthorized: false },
+    max: 5,
+    idleTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 5_000,
+    keepAlive: true,
 });
 
 pool.on('error', (err) => {
     console.error('Unexpected PG pool error:', err);
+});
+
+// Endpoint de salud
+app.get('/health', async (req, res) => {
+    try {
+        const { rows } = await pool.query('SELECT 1 AS ok');
+        res.json({ status: 'ok', db: rows[0].ok });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'db failed' });
+    }
 });
 
 // Endpoint de verificación de WhatsApp
