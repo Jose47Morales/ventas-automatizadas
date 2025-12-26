@@ -66,13 +66,13 @@ CREATE TABLE IF NOT EXISTS products (
     existencias INTEGER NOT NULL DEFAULT 0,
     impuesto NUMERIC(16,8) NOT NULL DEFAULT 0,
 
-    precio_venta_con_impuesto NUMERIC(16,8),
+    precioventa_con_impuesto NUMERIC(16,8),
     precio_venta_base NUMERIC(16,8),
     precio_venta_minimo NUMERIC(16,8),
     descuento_maximo_ps NUMERIC(16,8),
 
     precio_compra NUMERIC(16,8),
-    precio_compra_ipm NUMERIC(16,8),
+    precio_compraipm NUMERIC(16,8),
 
     total_impoconsumo NUMERIC(16,8),
     total_estampilla NUMERIC(16,8),
@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS products (
     es_ingrediente BOOLEAN NOT NULL DEFAULT false,
     manejo_bascula BOOLEAN NOT NULL DEFAULT false,
 
-    utilidad NUMERIC(5,2),
+    utilidad NUMERIC(11,5),
     mostrar_tienda BOOLEAN NOT NULL DEFAULT true,
 
     categoria TEXT,

@@ -1,75 +1,23 @@
 services:
-  db:
-    image: postgres:15
-    container_name: postgres_db
-    restart: always
+  postgres:
+    image: postgres:16
+    container_name: ventas_postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ventas_user
+      POSTGRES_PASSWORD: ventas_password
+      POSTGRES_DB: ventas_db
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./backend/src/database:/src/database
-
-  backend:
-    build: ./backend
-    container_name: backend_api
-    restart: always
-    ports:
-      - "${BACKEND_PORT}:4000"
-    environment:
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_USER=${POSTGRES_USER}
-      - DB_PASS=${POSTGRES_PASSWORD}
-      - DB_NAME=${POSTGRES_DB}
-      - VERIFY_TOKEN=${VERIFY_TOKEN}
-    depends_on:
-      - db
-    volumes:
-      - ./backend/src:/app/src
-      - ./backend/server.cjs:/app/server.cjs
-      - /app/node_modules
-
-  frontend:
-    build: ./frontend
-    container_name: frontend_web
-    restart: always
-    ports:
-      - "${FRONTEND_PORT}:5173"
-    depends_on:
-      - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-
-  n8n:
-    image: n8nio/n8n:latest
-    container_name: n8n_automation
-    restart: always
-    ports:
-      - "${N8N_PORT}:5678"
-    environment:
-      - DB_TYPE=postgresdb
-      - DB_POSTGRESDB_HOST=db
-      - DB_POSTGRESDB_PORT=5432
-      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
-      - DB_POSTGRESDB_USER=${POSTGRES_USER}
-      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
-      - GENERIC_TIMEZONE=America/Bogota
-      - N8N_HOST=n8n.local
-      - N8N_PORT=5678
-      - WEBHOOK_URL=https://reliability-affordable-conduct-musician.trycloudflare.com
-      - N8N_TRUST_PROXY=${N8N_TRUST_PROXY}
-      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
-      - N8N_RUNNERS_ENABLED=true
-    depends_on:
-      - db
-    volumes:
-      - n8n_data:/home/node/.n8n
+      - postgres_data:/var/lib/postgresql/data
+      - ./database:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ventas_user -d ventas_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  pgdata:
+  postgres_data:
   n8n_data:
