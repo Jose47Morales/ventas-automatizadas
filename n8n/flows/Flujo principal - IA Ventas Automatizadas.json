@@ -1,0 +1,6040 @@
+{
+  "name": "Flujo principal - IA Ventas Automatizadas",
+  "nodes": [
+    {
+      "parameters": {
+        "multipleMethods": true,
+        "path": "whatsapp-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -224,
+        144
+      ],
+      "id": "35313515-0ca3-4024-b63c-c06a361357dc",
+      "name": "Webhook",
+      "webhookId": "41022456-de2c-4715-9b85-08e5089bec5c"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query['hub.challenge'] }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        176,
+        -224
+      ],
+      "id": "04cecc46-9257-4b1a-9c3c-6eeedfbfef51",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Tomamos el body completo\nconst body = $input.item.json.body;\n\n// Validamos que venga el raw\nif (!body || !body.raw) {\n  return { json: { isMessage: false, type: \"status_update\" } };\n}\n\n// Accedemos al nodo correcto del webhook\nconst entry = body.raw.entry?.[0];\nconst change = entry?.changes?.[0];\nconst value = change?.value;\n\nconst messages = value?.messages;\n\nconst contacts = value?.contacts;\nconst contact = contacts?.[0];\nconst userName = contact?.profile?.name || null;\n\n// Si no existen mensajes, no es un mensaje de usuario\nif (!messages || messages.length === 0) {\n  return { json: { isMessage: false, type: \"status_update\" } };\n}\n\n// Tomamos el mensaje real\nconst msg = messages[0];\n\n// Extraemos campos importantes\nconst messageId = msg.id || \"\";\nconst from = msg.from || \"\";\nconst timestamp = msg.timestamp || Date.now();\nconst messageType = msg.type || \"unknown\";\nlet messageText = \"\";\n\n// Si es texto\nif (messageType === \"text\") {\n  messageText = msg.text?.body || \"\";\n}\n\n// Retornamos la estructura lista para el flujo\nreturn {\n  json: {\n    from,\n    userName,\n    messageId,\n    messageType,\n    messageText,\n    timestamp,\n    isMessage: true,\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        240
+      ],
+      "id": "2902cbbc-bbf0-4862-a66d-83b1075db0ed",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3a498d56-2f59-4d84-921c-1c1f7aa03255",
+              "leftValue": "={{ $json.query['hub.verify_token'] }}",
+              "rightValue": "ventas_auto_verify",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -32,
+        -48
+      ],
+      "id": "a116b8ff-bffd-434c-a375-6e1f4f496a8d",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"error\": \"Invalid token\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        176,
+        -48
+      ],
+      "id": "92168c81-8de9-4025-b293-54d0540083f5",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "06d8d6f4-ada9-42f0-bdd8-e0f3d4108df6",
+              "leftValue": "={{ $json.isMessage }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        384,
+        96
+      ],
+      "id": "ddbe9485-a70c-4eff-9569-622ca58f8895",
+      "name": "¿Es mensaje válido?"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "13af32a3-5623-42ab-b84e-5fe0a7e59175",
+                    "leftValue": "={{ ($json.sessionState && $json.sessionState !== 'idle' && $json.sessionState !== 'awaiting.product') ? $json.sessionState : $json.intencion }}",
+                    "rightValue": "awaiting.quantity",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Esperando cantidad"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2d63d588-0ee6-4d7e-91d8-03783c1c8aa6",
+                    "leftValue": "={{ ($json.sessionState && $json.sessionState !== 'idle' && $json.sessionState !== 'awaiting.product') ? $json.sessionState : $json.intencion }}",
+                    "rightValue": "awaiting.confirmation",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Esperando confirmación"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "453d9267-e9c2-4a39-892e-6d7d76df0e1a",
+                    "leftValue": "={{ ($json.sessionState && $json.sessionState !== 'idle' && $json.sessionState !== 'awaiting.product') ? $json.sessionState : $json.intencion }}",
+                    "rightValue": "awaiting.payment",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Esperando pago"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "8490297e-0795-4ea1-aa64-888975ca8b5f",
+                    "leftValue": "={{ ($json.sessionState && $json.sessionState !== 'idle' && $json.sessionState !== 'awaiting.product') ? $json.sessionState : $json.intencion }}",
+                    "rightValue": "awaiting.selection",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Seleccionando producto"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ ($json.sessionState && $json.sessionState !== 'idle' && $json.sessionState !== 'awaiting.product') ? $json.sessionState : $json.intencion }}",
+                    "rightValue": "explorar_productos",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "e9f6d192-1784-4bd7-a4ba-a39dbeac889b"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Explorar productos"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "9cbd4274-9bdd-4d8f-807a-f86bc55ccfcc",
+                    "leftValue": "={{ ($json.sessionState && $json.sessionState !== 'idle' && $json.sessionState !== 'awaiting.product') ? $json.sessionState : $json.intencion }}",
+                    "rightValue": "soporte",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Soporte"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "8e8c9cae-d1ee-4a42-8073-f377ab6fffdb",
+                    "leftValue": "={{ ($json.sessionState && $json.sessionState !== 'idle' && $json.sessionState !== 'awaiting.product') ? $json.sessionState : $json.intencion }}",
+                    "rightValue": "saludo",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Saludo"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a53b5412-7e2c-4a8a-b1d5-8cb33283bca3",
+                    "leftValue": "={{ ($json.sessionState && $json.sessionState !== 'idle' && $json.sessionState !== 'awaiting.product') ? $json.sessionState : $json.intencion }}",
+                    "rightValue": "estado_pedido",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Estado Pedido"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "6d096a67-580d-4ce4-a9bc-8884d9131c14",
+                    "leftValue": "={{ ($json.sessionState && $json.sessionState !== 'idle' && $json.sessionState !== 'awaiting.product') ? $json.sessionState : $json.intencion }}",
+                    "rightValue": "pago",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Pago"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c7a0208b-81e2-40fa-8a02-9ee4e111b7b3",
+                    "leftValue": "={{ ($json.sessionState && $json.sessionState !== 'idle' && $json.sessionState !== 'awaiting.product') ? $json.sessionState : $json.intencion }}",
+                    "rightValue": "despedida",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Despedida"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "9c9b4f27-47e5-47e3-8a01-e21ddf40dc99",
+                    "leftValue": "={{ ($json.sessionState && $json.sessionState !== 'idle' && $json.sessionState !== 'awaiting.product') ? $json.sessionState : $json.intencion }}",
+                    "rightValue": "seleccion_invalida",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Selección invalida"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        1552,
+        -240
+      ],
+      "id": "bcaca34c-a041-44ef-8288-dfa0f59059cb",
+      "name": "Rutear por intención"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b7295eb3-2c61-4ddc-a52c-165cab6b4161",
+              "name": "message",
+              "value": "=Hola {{ $json.name }}, lamento que tengas un inconveniente. 🔧\n\nNuestro equipo de soporte está aquí para ayudarte.            \n\nPor favor describe tu situación con el mayor detalle posible:            • ¿Qué producto o servicio tiene el problema?      \n• ¿Qué error estás experimentando?\n• ¿Cuándo comenzó el problema?            \nUn agente te atenderá lo antes posible.      \n\n⏱️ Tiempo estimado: 5-10 minutos",
+              "type": "string"
+            },
+            {
+              "id": "19b04029-2356-4eca-aa11-24eb8ee4a5fb",
+              "name": "from",
+              "value": "={{ $json.from }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2240,
+        640
+      ],
+      "id": "10059ec6-8385-4aab-a2d1-a8e36ab71eae",
+      "name": "Soporte"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "48033d53-0ed9-4ade-ad9f-fde939249209",
+              "name": "message",
+              "value": "=¡Hola {{ $json.name }}! 👋\n\n¡Qué gusto saludarte! \nSoy tu asistente virtual y estoy aquí para ayudarte. 😊\n\n¿En qué puedo ayudarte hoy?\n\n💼 Ver productos y servicios      \n🛒 Realizar una compra      \n🔧 Soporte técnico      \n👤 Hablar con un agente humano\n\nSolo escribe lo que necesitas y te ayudo de inmediato.",
+              "type": "string"
+            },
+            {
+              "id": "a0bd9c8a-b7e7-41d8-8137-bd7735ed2818",
+              "name": "from",
+              "value": "={{ $json.from }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2240,
+        800
+      ],
+      "id": "bd86c5ed-1437-42ee-a9f1-c26729da97a8",
+      "name": "Saludo"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "033217ee-e17a-460f-994c-4aab2865b55a",
+              "name": "message",
+              "value": "=Hola {{ $json.userName }}, gracias por tu mensaje. 😊\n\nNo estoy seguro de cómo ayudarte con eso en este momento, pero puedo asistirte con:\n\n📦 Ver productos y servcios      \n🛒 Realizar compras      \n🔧 Soporte técnico      \n💬 Consultas generales\n\n¿Hay algo específico en lo que pueda ayudarte?",
+              "type": "string"
+            },
+            {
+              "id": "1304d926-627c-4af5-897b-70e61caabbbe",
+              "name": "from",
+              "value": "={{ $json.from }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2240,
+        1184
+      ],
+      "id": "ac505cb9-2c19-4711-94fa-1576dfcefc2f",
+      "name": "Otro"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2624,
+        992
+      ],
+      "id": "90b0e028-e2f3-4faa-9571-99c321375d4c",
+      "name": "Unir Respuestas"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3056,
+        1168
+      ],
+      "id": "e7153079-9b0a-4b76-bee7-c89e5938ef97",
+      "name": "Enviar WhatsApp",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        3328,
+        1168
+      ],
+      "id": "fc1fafdb-34ab-41c8-85b8-f7e5e20640d7",
+      "name": "Confirmar a Meta"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ==================================================================\n//     SISTEMA PROFESIONAL DE INTENCIONES + BUSQUEDA DE PRODUCTOS\n// ==================================================================\n\n// ----------------------\n//     1. JSON Seguro\n// ----------------------\nfunction safeParseJSON(raw, def = {}) {\n  try {\n    if (!raw) return def;\n    if (typeof raw === \"object\") return raw;\n\n    let cleaned = String(raw)\n      .trim()\n      .replace(/\\r/g, \"\")\n      .replace(/\\n\\s*/g, \"\")\n      .replace(/\\t/g, \"\")\n      .replace(/,\\s*}/g, \"}\")\n      .replace(/,\\s*\\]/g, \"]\");\n\n    return JSON.parse(cleaned);\n  } catch (err) {\n    return def;\n  }\n}\n\n// --------------------------------- \n//     2. Sesión limpia y segura\n// ---------------------------------\nfunction generateIntegrityToken() {\n  return Math.random().toString(36).substring(2, 10) + Date.now().toString(36);\n}\n\nfunction normalizeSession(session = {}) {\n  return {\n    state: session.state || \"idle\",\n    data: safeParseJSON(session.data, {}),\n    integrityToken: session.integrityToken || generateIntegrityToken(),\n  };\n}\n\n// =======================\n//     INPUT desde n8n\n// =======================\nconst input = $input.item.json;\n\nconst textoOriginal = input.messageText || \"\";\nconst userName = input.userName || \"\";\nconst from = input.from || \"\";\nconst session = normalizeSession(input.session || {});\n\nlet debug = [];\n\n// ==============================\n//     NORMALIZACIÓN DE TEXTO\n// ==============================\nfunction normalizeQuery(t) {\n  return String(t || \"\")\n    .toLowerCase()\n    .trim()\n    .normalize(\"NFD\")\n    .replace(/[\\u0300-\\u036f]/g, \"\")\n    .replace(/[.,!?;:]/g, \" \")\n    .replace(/\\s+/g, \" \");\n}\n\nconst texto = normalizeQuery(textoOriginal);\n\n// ======================\n//     Palabras clave\n// ======================\nconst keywords = {\n  saludo: [\"hola\",\"buen dia\",\"buenas\",\"saludos\",\"hey\",\"holi\"],\n  compra:[\"comprar\",\"compra\",\"quiero comprar\"],\n  catalogo: [\"catalogo\",\"ver productos\",\"mostrar productos\"],\n  soporte: [\"ayuda\",\"soporte\",\"no funciona\"],\n  despedida: [\"gracias\",\"adios\",\"hasta luego\",\"bye\"],\n  pago: [\"pagar\",\"pago\",\"nequi\",\"daviplata\"],\n  pedido: [\"mi pedido\",\"estado\",\"seguimiento\"],\n  consulta_contextual: [\"horario\",\"hora\",\"atienden\",\"ubicacion\",\n                       \"direccion\",\"envio\",\"envian\",\"domicilio\",\n                       \"cuanto tarda\",\"tiempo de entrega\",\"formas de pago\",\n                       \"metodos de pago\",\"pago contra entrega\"]\n};\n\nfunction esConsultaTextual(texto) {\n  return keywords.consulta_contextual.some(w => texto.includes(w));\n}\n\nfunction detectarSubConsulta(texto) {\n  if (/(horario|hora|atienden|abren|cierran)/.test(texto)){\n    return \"horario\";\n  }\n\n  if (/(ubicacion|direccion|donde estan|donde qeudan)/.test(texto)){\n    return \"ubicacion\";\n  }\n\n  if (/(envio|envian|domicilio|entrega)/.test(texto)){\n    return \"envio\";\n  }\n\n  if (/(pago|pagos|metodos de pago|formas de pago|nequi|daviplata|efectivo)/.test(texto)){\n    return \"pagos\";\n  }\n\n  return \"otros\";\n}\n\nfunction incluye(lista, text) {\n  return lista.some(w => text.includes(w));\n}\n\n// ======================================\n//     Detector de intención especial\n// ======================================\nfunction isConsultarProducto(texto) {\n  const patterns = [\n    /cuanto.*(vale|cuesta)/,\n    /precio/,\n    /tienen.*[a-z]/,\n    /busco/,\n    /hay.*[a-z]/,\n    /me interesa/,\n    /original|replica|barato|disponible/\n  ];\n\n  return patterns.some(r => r.test(texto));\n}\n\nfunction detectIntent(texto) {\n  if (\n    isConsultarProducto(texto) ||\n    incluye(keywords.compra, texto) ||\n    incluye(keywords.catalogo, texto)\n  ) {\n    return \"explorar_productos\";\n  };\n  if (incluye(keywords.pago, texto)) return \"pago\";\n  if (incluye(keywords.pedido, texto)) return \"estado_pedido\";\n  if (incluye(keywords.soporte, texto)) return \"soporte\";\n\n  if (incluye(keywords.saludo, texto)) return \"saludo\";\n  \n  if (incluye(keywords.despedida, texto)) return \"despedida\";\n\n  return \"otro\";\n}\n\n// ==================================================\n// 3. Detección de si el texto contiene un número\n// ==================================================\nconst contieneNumero = /\\d+/.test(texto);\n\n// ==========================\n//     MANEJO POR ESTADOS\n// ==========================\n\nswitch (session.state) {\n\n  // -----------------------------------------------------------\n  case \"awaiting.confirmation\":\n    const afirmativas = [\"si\",\"claro\",\"ok\",\"acepto\",\"agregar\"];\n    const negativas = [\"no\",\"nunca\",\"cancelar\",\"no quiero\"];\n\n    if (afirmativas.some(w => texto.includes(w))) {\n      return {\n        json: {\n          intencion: \"confirmacion_positiva\",\n          from, userName,\n          sessionState: session.state,\n          sessionData: session.data,\n          sessionIntegrityToken: session.integrityToken,\n          texto_normalizado: texto,\n          debug\n        }\n      };\n    }\n\n    if (negativas.some(w => texto.includes(w))) {\n      return {\n        json: {\n          intencion: \"confirmacion_negativa\",\n          from, userName,\n          sessionState: session.state,\n          sessionData: session.data,\n          sessionIntegrityToken: session.integrityToken,\n          texto_normalizado: texto,\n          debug\n        }\n      };\n    }\n\n    if (esConsultaTextual(texto)) {\n      const subIntencion = detectarSubConsulta(texto);\n      \n      return {\n        json: {\n          intencion: \"consulta_contextual\",\n          sub_intencion: subIntencion,\n          from, userName,\n          sessionState: session.state,\n          sessionData: session.data,\n          sessionIntegrityToken: session.integrityToken,\n          texto_normalizado: texto,\n          debug\n        }\n      };\n    }\n    \n    return {\n      json: {\n        intencion: \"confirmacion_invalida\",\n        from, userName,\n        sessionState: session.state,\n        sessionData: session.data,\n        sessionIntegrityToken: session.integrityToken,\n        texto_normalizado: texto,\n        debug\n      }\n    };\n\n  // -------------------------------------------------\n\n  case \"awaiting.selection\":\n    const num = parseInt(texto);\n    if (!isNaN(num) && num > 0) {\n      return {\n        json: {\n          intencion: \"seleccion_producto\",\n          seleccionNumero: num,\n          from, userName,\n          sessionState: session.state,\n          sessionData: session.data,\n          sessionIntegrityToken: session.integrityToken,\n          texto_normalizado: texto,\n          debug\n        }\n      };\n    }\n\n    return {\n      json: {\n        intencion: \"seleccion_invalida\",\n        seleccionNumero: num,\n        from, userName,\n        sessionState: session.state,\n        sessionData: session.data,\n        sessionIntegrityToken: session.integrityToken,\n        texto_normalizado: texto,\n        debug\n      }\n    };\n\n  // ----------------------------------------------\n  case \"awaiting.product\":\n    return {\n      json: {\n        intencion: \"explorar_productos\",\n        from, userName,\n        sessionState: session.state,\n        sessionData: session.data,\n        sessionIntegrityToken: session.integrityToken,\n        texto_normalizado: texto\n      }\n    };\n\n  // -----------------------------------------------\n  case \"awaiting.payment\": \n\n    // Detecta la intención\n    const seguir = [\"seguir\", \"comprar\", \"seguir comprando\", \"ver productos\", \"otro\", \"mas\", \"volver\"];\n    const cancelar = [\"cancelar\", \"no\", \"salir\", \"parar\", \"anular\"];\n    const pagar = [\"pagar\", \"pagar ahora\", \"nequi\", \"daviplata\", \"efectivo\", \"tarjeta\", \"pago\"];\n\n    if (seguir.some(w => texto.includes(w))) {\n      return {\n        json: {\n          intencion: \"seguir_comprando\",\n          from, userName,\n          sessionState: session.state,\n          sessionData: session.data,\n          sessionIntegrityToken: session.integrityToken,\n          texto_normalizado: texto,\n        }\n      };\n    }\n\n    if (cancelar.some(w => texto.includes(w))) {\n      return {\n        json: {\n          intencion: \"cancelar_pedido\",\n          from, userName,\n          sessionState: session.state,\n          sessionData: session.data,\n          sessionIntegrityToken: session.integrityToken,\n          texto_normalizado: texto,\n        }\n      };\n    }\n\n    if (pagar.some(w => texto.includes(w))) {\n      return {\n        json: {\n          intencion: \"pago\",\n          from, userName,\n          sessionState: session.state,\n          sessionData: session.data,\n          sessionIntegrityToken: session.integrityToken,\n          texto_normalizado: texto,\n        }\n      };\n    }\n    \n    return {\n      json: {\n        intencion: \"awaiting_payment\",\n        from, userName,\n        sessionState: session.state,\n        sessionData: session.data,\n        sessionIntegrityToken: session.integrityToken,\n        texto_normalizado: texto,\n      }\n    };\n\n  // -------------------------------------------------------------------------------\n  case \"awaiting.payment_confirmation\":\n    const yesPay = [\"si\",\"confirmo\",\"pagar\",\"dale\",\"vamos\",\"listo\"];\n    const noPay = [\"no\",\"cancelar\",\"despues\",\"luego\",\"mas tarde\"];\n\n    if (yesPay.some(w => texto.includes(w))) {\n      return {\n        json: {\n          intencion: \"confirmar_pago\",\n          from, userName,\n          sessionState: session.state,\n          sessionData: session.data,\n          sessionIntegrityToken: session.integrityToken,\n          texto_normalizado: texto,\n        }\n      };\n    }\n\n    if (noPay.some(w => texto.includes(w))) {\n      return {\n        json: {\n          intencion: \"cancelar_pago\",\n          from, userName,\n          sessionState: session.state,\n          sessionData: session.data,\n          sessionIntegrityToken: session.integrityToken,\n          texto_normalizado: texto,\n        }\n      };\n    }\n\n    return {\n      json: {\n        intencion: \"respuesta_invalida_payment_confirmation\",\n        message: \"Solo necesito que me confirmes ☺\\n\\n¿Deseas *confirmar el pago* ahora?\",\n        from, userName,\n        sessionState: session.state,\n        sessionData: session.data,\n        sessionIntegrityToken: session.integrityToken,\n        texto_normalizado: texto,\n      }\n    };\n}\n\n// =========================\n//     INTENCIÓN GENERAL\n// =========================\n\nconst intencion = detectIntent(texto);\n\nreturn {\n  json: {\n    intencion,\n    contieneNumero,\n    from,\n    userName,\n    texto_normalizado: texto,\n    sessionState: session.state,\n    sessionData: session.data,\n    sessionIntegrityToken: session.integrityToken,\n    debug\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        -144
+      ],
+      "id": "898ffc23-f5d0-416a-932c-29309f4f4951",
+      "name": "Clasificar por palabras clave"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Obtener los datos del merge\nconst from = $input.item.json.from;\nconst message = $input.item.json.message;\n\n// Construir el payload correcto para WhatsApp\nreturn {\n  json: {\n    messaging_product: \"whatsapp\",\n    recipient_type: \"individual\",\n    to: from,\n    type: \"text\",\n    text: {\n      preview_url: false,\n      body: message\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2800,
+        1040
+      ],
+      "id": "6f774e8a-5c9c-459c-b300-5d375816775a",
+      "name": "Preparar payload WhatsApp"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "log_type",
+              "value": "incoming"
+            },
+            {
+              "name": "from_number",
+              "value": "={{ $json.from }}"
+            },
+            {
+              "name": "user_message",
+              "value": "={{ $json.messageText }}"
+            },
+            {
+              "name": "message_id",
+              "value": "={{ $json.messageId }}"
+            },
+            {
+              "name": "status",
+              "value": "received"
+            },
+            {
+              "name": "raw_data",
+              "value": "={{ $json }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        384,
+        384
+      ],
+      "id": "860d0be8-2f17-4c3e-aa79-b94dc6a7604f",
+      "name": "Log Incoming Message"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "log_type",
+              "value": "classification"
+            },
+            {
+              "name": "from_number",
+              "value": "={{ $json.from }}"
+            },
+            {
+              "name": "user_message",
+              "value": "={{ $json.texto_normalizado }}"
+            },
+            {
+              "name": "intent",
+              "value": "={{ $json.intencion }}"
+            },
+            {
+              "name": "status",
+              "value": "classified"
+            },
+            {
+              "name": "raw_data",
+              "value": "={{ $json }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1152,
+        384
+      ],
+      "id": "45663cfb-8350-409e-941b-cf403fe07084",
+      "name": "Log Clasification message"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "log_type",
+              "value": "outgoing"
+            },
+            {
+              "name": "to_number",
+              "value": "={{ $json.to_number }}"
+            },
+            {
+              "name": "ai_response",
+              "value": "={{ $json.ai_response }}"
+            },
+            {
+              "name": "message_id",
+              "value": "={{ $json.message_id }}"
+            },
+            {
+              "name": "intent",
+              "value": "={{ $json.intent }}"
+            },
+            {
+              "name": "status",
+              "value": "sent"
+            },
+            {
+              "name": "raw_data",
+              "value": "={{ $json }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        4176,
+        960
+      ],
+      "id": "cd89430f-23e9-475d-89c5-c24d78dee208",
+      "name": "Log Message Recived"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener todos los inputs\nconst inputs = $input.all();\n\nlet sentPayload, metaResponse, userData;\n\n// Identificar cada tipo de entrada\nfor (const input of inputs) {\n  if (input.json.messaging_product && input.json.to && input.json.text) {\n    // Este es el payload que enviamos a WhatsApp\n    sentPayload = input.json;\n  } else if (input.json.contacts && input.json.messages) {\n    // Esta es la respuesta de Meta\n    metaResponse = input.json;\n  } else if (input.json.intencion) {\n    // Estos son los datos del usuario con la intención\n    userData = input.json;\n  }\n}\n\n// Fallback si no se identificaron\nif (!sentPayload) sentPayload = inputs[1]?.json || {};\nif (!metaResponse) metaResponse = inputs[0]?.json || {};\nif (!userData) userData = inputs[2]?.json || {};\n\n// Extraer to_number desde la respuesta de Meta\nconst toNumber = metaResponse.contacts?.[0]?.wa_id || \n                 metaResponse.contacts?.[0]?.input || \n                 userData.from || \"\";\n\n// Extraer message_id desde la respuesta de Meta\nconst messageId = metaResponse.messages?.[0]?.id || \"\";\n\n// Extraer ai_response desde el payload enviado\nconst aiResponse = sentPayload.text?.body || \"\";\n\n// Extraer la intención desde userData\nconst intent = userData.intencion || \"\";\n\n// Construir el objeto de log\nreturn {\n  json: {\n    log_type: \"outgoing\",\n    to_number: toNumber,\n    ai_response: aiResponse,\n    message_id: messageId,\n    intent: intent,\n    status: \"sent\",\n    raw_data: {\n      sent_payload: sentPayload,\n      meta_response: metaResponse,\n      user_data: userData\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3904,
+        736
+      ],
+      "id": "7dea648e-5f37-4073-aa5c-242d66427f6c",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3328,
+        1568
+      ],
+      "id": "143e8ef4-b9d6-4025-945a-bacae292c9ff",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "url": "=https://ventas-backend-gyyx.onrender.com/api/products/search?search={{$json.searchTerm}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3376,
+        -400
+      ],
+      "id": "9ca9da12-e20f-42e0-8eeb-92715b0b4bb6",
+      "name": "Buscar producto"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dfb33b7e-7b15-4a03-87cd-30be5b255005",
+              "name": "searchTerm",
+              "value": "={{ $json.terminoBusqueda }}",
+              "type": "string"
+            },
+            {
+              "id": "f0155855-948b-47b3-8999-30b4ba85f685",
+              "name": "clientName",
+              "value": "={{ $json.userName }}",
+              "type": "string"
+            },
+            {
+              "id": "bf6ca6a2-49f4-4594-856e-875248eecc90",
+              "name": "clientPhone",
+              "value": "={{ $json.from }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2768,
+        -1024
+      ],
+      "id": "1724553c-c243-4f5f-9572-e82b7f32990f",
+      "name": "Preparar consulta del producto"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"ignored\",\n  \"reason\": \"status_update\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        864,
+        384
+      ],
+      "id": "436808e9-a809-46be-ba35-76dc5ee0be80",
+      "name": "Mensaje no valido"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "41de879a-a73d-4d58-a6f6-03ff5329ed29",
+              "leftValue": "={{ $json.searchTerm }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "94811fef-5a14-4868-89e4-8947688f1f7e",
+              "leftValue": "={{ $json.searchTerm.trim() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2960,
+        -1024
+      ],
+      "id": "79ea2ae0-00c8-4176-a167-1aaf1d898473",
+      "name": "¿Necesita información?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9bee4027-e3c5-4f5c-9fcb-0810ab66fcf8",
+              "name": "clientPhone",
+              "value": "={{ $json.clientPhone }}",
+              "type": "string"
+            },
+            {
+              "id": "a279f9aa-cd01-46f0-9fba-1a4e8fe7e7d8",
+              "name": "clientName",
+              "value": "={{ $json.clientName }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3184,
+        -1024
+      ],
+      "id": "f88a5aa6-e8ca-4a35-86a4-ead29ee4cb06",
+      "name": "Preparar mensaje para pedir info"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.clientPhone || $json.user_phone }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"{{ $json.clientName }} 👋\\n\\nNecesito un poco más de información para ayudarte.\\n\\nPor favor dime *qué producto buscas*, puede ser el nombre, referencia, categoría o marca.\\n\\nEjemplos:\\n• *cargador samsung*\\n• *case iphone 12*\\n• *audífonos inalámbricos*\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3840,
+        -1216
+      ],
+      "id": "e2a6f895-4c98-4497-b0a6-a46fe372d008",
+      "name": "Pedir info",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        4064,
+        -1008
+      ],
+      "id": "85e29fc1-6f18-4795-980b-d45992057dda",
+      "name": "Confirmar a Meta - Pedir info"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"user_phone\": \"={{$json.from}}\",\n  \"state\": \"awaiting.product\",\n  \"data\": {\n    \"order_id\": \"={{$json.sessionData.order_id}}\",\n    \"total\": \"={{$json.sessionData.total}}\",\n    \"pending_payment\": \"={{$json.sessionData.pending_payment}}\",\n    \"expected_confirmation\": \"={{$json.sessionData.expected_confirmation}}\",\n    \"timestamp\": \"{{ new Date().toISOString() }}\",\n    \"clientName\": \"={{$json.userName}}\",\n    \"needsInput\": true\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3616,
+        -1440
+      ],
+      "id": "abd4622e-5c53-4efa-9420-400cbbc3d178",
+      "name": "Preparar JSON - Esperando Producto"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://ventas-backend-gyyx.onrender.com/api/chat-sessions",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "=user_phone",
+              "value": "={{ $json.user_phone }}"
+            },
+            {
+              "name": "state",
+              "value": "={{ $json.state }}"
+            },
+            {
+              "name": "data",
+              "value": "={{ $json.data }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3840,
+        -1440
+      ],
+      "id": "5a8902b7-72ab-45f7-a8d1-a1588f620bf1",
+      "name": "Guardar estado - Esperando producto"
+    },
+    {
+      "parameters": {
+        "url": "=https://ventas-backend-gyyx.onrender.com/api/chat-sessions/{{ $json.from }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        560,
+        -160
+      ],
+      "id": "47159f25-ad81-49c2-8ce9-fb93454cde2f",
+      "name": "Obtener estado de conversación"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        832,
+        -144
+      ],
+      "id": "cf21cedb-80e2-4d2c-9d73-59e15c26c7e9",
+      "name": "Estado / Datos"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// =============================================\n// ==== MANEJO DE ESTADO: awaiting.quantity ====\n// =============================================\n\n// Texto ingresado por el usuario\nconst rawText = ($json.texto_normalizado || '').trim();\n\n// Estado y datos de sesión actuales\nconst sessionState = $json.sessionState || \"idle\";\nconst sessionData = $json.sessionData || {};\n\n// Si NO estamos en awaiting_quantity → no hacemos nada especial\nif (sessionState !== \"awaiting.quantity\") {\n  return {\n    json: {\n      ...$json,\n      awaiting_quantity: {\n        isActive: false,\n        isValidQuantity: false,\n        quantity: null,\n        reason: \"NotAwaiting\"\n      }\n    }\n  };\n}\n\n// Convertir mensaje a número\n// Permite entradas como: \"3\", \"3 unidades\", \"quiero 3\", \"x3\"\nlet extractedNumber = null;\n\n// Intento directo\nif (!isNaN(parseInt(rawText))) {\n  extractedNumber = parseInt(rawText);\n} else {\n  // Buscar número dentro del texto\n  const found = rawText.match(/\\d+/);\n  if (found) {\n    extractedNumber = parseInt(found[0]);\n  }\n}\n\n// Validación\nconst isValid = extractedNumber !== null && extractedNumber > 0;\n\n// Construcción del resultado\nreturn {\n  json: {\n    ...$json,\n    awaiting_quantity: {\n      isActive: true,\n      isValidQuantity: isValid,\n      quantity: isValid ? extractedNumber : null,\n      reason: isValid ? \"OK\" : \"InvalidNumber\"\n    },\n    // Si es válida, actualizamos sessionData (sin cambiar sessionState todavía)\n    sessionData: {\n      ...sessionData,\n      quantity: isValid ? extractedNumber : null\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2128,
+        -5536
+      ],
+      "id": "d7aea337-1b71-44d7-afb8-a7e8e8d1d0a6",
+      "name": "Validar cantidad"
+    },
+    {
+      "parameters": {
+        "url": "=https://ventas-backend-gyyx.onrender.com/api/products/search?search={{$json.posibleProducto}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2256,
+        -2096
+      ],
+      "id": "1f97954b-47a3-402d-b8f2-920c406a375d",
+      "name": "Buscar producto Realizar compra"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "178917b1-5725-4e85-8864-f83fd59f22e7",
+              "leftValue": "={{ $json.posibleProducto }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2080,
+        -2096
+      ],
+      "id": "73d38220-f985-410a-b56b-0cb427f85ae4",
+      "name": "¿Menciona producto?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9cac9503-e12f-4bf3-b48e-42262a729b96",
+              "name": "product_found",
+              "value": "={{ $json.products ? true : false }}",
+              "type": "string"
+            },
+            {
+              "id": "f1fd98cf-dd54-4a8d-95a9-bdc772673433",
+              "name": "product_id",
+              "value": "={{ $json.producto.id }}",
+              "type": "string"
+            },
+            {
+              "id": "02f799f8-5cd7-45a1-9a4c-1c67665eab00",
+              "name": "product_name",
+              "value": "={{ $json.producto.nombre }}",
+              "type": "string"
+            },
+            {
+              "id": "e3d00866-42fd-4106-b2cc-58d189b25b31",
+              "name": "product_price",
+              "value": "={{ $json.producto.precio }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3616,
+        -592
+      ],
+      "id": "e761dc5c-2070-445d-985b-a6b7dc0477ea",
+      "name": "Encontró"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"Claro, puedo ayudarte con tu compra ☺\\n\\nPor favor dime el nombre del producto que buscas.\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2256,
+        -1856
+      ],
+      "id": "86e75446-427c-4965-806b-2f380d8ffe9a",
+      "name": "Enviar mensaje No Producto",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2768,
+        -400
+      ],
+      "id": "deb3c574-3e49-4db8-8cea-4644c55a78bf",
+      "name": "Confirmar a Meta - No producto"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"¡Ups! No pude encontrar nada con esa descripción 😕\\n\\n¿Podrías darme un dato más? Quizá la marca, el color o algo parecido.\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3392,
+        224
+      ],
+      "id": "7283dd01-863a-47d2-9aac-535e395259ba",
+      "name": "Enviar mensaje No encontré",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://ventas-backend-gyyx.onrender.com/api/chat-sessions",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "user_phone",
+              "value": "={{ $json.from }}"
+            },
+            {
+              "name": "state",
+              "value": "awaiting.confirmation"
+            },
+            {
+              "name": "data",
+              "value": "={\n  \"product_id\": {{ $json.product_id }},\n  \"product_name\": \"{{ $json.product_name }}\",\n  \"product_price\": {{ $json.product_price }}\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        4336,
+        -400
+      ],
+      "id": "710372b8-8393-48f0-83a5-494d925dbb67",
+      "name": "Guardar estado - Confirmar producto"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"Encontré este producto:\\n{{ $json.product_name }}\\nPrecio: ${{ $json.product_price }}\\n¿Deseas agregarlo a tu pedido?\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        4336,
+        -608
+      ],
+      "id": "ab3667f1-477a-4028-9341-e61417fc9168",
+      "name": "Enviar mensaje Encontré",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        5056,
+        -1184
+      ],
+      "id": "3ee2dace-377c-4e3b-bbe8-7f34be99f48a",
+      "name": "Confirmar a Meta - Encontré"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        4112,
+        -592
+      ],
+      "id": "b3fe002f-1f53-4aa8-a3a6-798238d3154c",
+      "name": "Producto + Datos"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Si no hay item, devolvemos vacío.\nconst item = $input.first().json;\n\nreturn {\n  json: {\n    product_id: item.product_id,\n    product_name: item.product_name,\n    product_price: item.product_price,\n    product_found: item.product_found === \"true\"\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3856,
+        -592
+      ],
+      "id": "b009d48a-5dc2-4dc5-ba91-98f4700785b3",
+      "name": "Flatten Product Result"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"user_phone\": \"{{ $json.from }}\",\n  \"state\": \"awaiting.quantity\",\n  \"data\": {\n    \"order_id\": {{ $json.sessionData.session?.order_id || null }},\n    \"total\": {{ $json.sessionData.session?.total || 0 }},\n    \"pending_payment\": \"{{ $json.sessionData.session?.pending_payment || false }}\",\n    \"expected_confirmation\": \"{{ $json.sessionData.session?.expected_confirmation || null }}\",\n\n    \"product_id\": {{ $json.sessionData.current_selection ? $json.sessionData.current_selection.producto_seleccionado.id : $json.sessionData.product_id }},\n    \"product_name\": \"{{ $json.sessionData.current_selection ? $json.sessionData.current_selection.producto_seleccionado.nombre : $json.sessionData.product_name }}\",\n    \"product_price\": {{ $json.sessionData.current_selection ? $json.sessionData.current_selection.producto_seleccionado.precio : $json.sessionData.product_price }}\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2304,
+        -4896
+      ],
+      "id": "4200f923-7fe3-44c4-820a-cf9eef5348fc",
+      "name": "Producto confirmado"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/chat-sessions",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "user_phone",
+              "value": "={{ $json.user_phone }}"
+            },
+            {
+              "name": "state",
+              "value": "={{ $json.state }}"
+            },
+            {
+              "name": "data",
+              "value": "={{ $json.data }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2528,
+        -4688
+      ],
+      "id": "4d6aeee3-fbeb-4adf-89c3-eb70848b9f2e",
+      "name": "Actualizar sesión"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.user_phone }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"Perfecto, agregaré *{{ $json.data.product_name }}* a tu pedido.\\n\\n¿Cuantas unidades deseas?\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2528,
+        -5120
+      ],
+      "id": "63e1e0bd-c926-4b62-a5ac-56c104bf87cc",
+      "name": "Enviar mensaje Pedir cantidad",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2c535d3a-9d15-4e9c-99a8-b87e211c8483",
+              "name": "newState",
+              "value": "awaiting.product",
+              "type": "string"
+            },
+            {
+              "id": "e59cc1b0-24d2-435c-97a7-07c60b8acacc",
+              "name": "from",
+              "value": "={{ $json.from }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2320,
+        -4480
+      ],
+      "id": "cf4769bd-8b16-4c55-97d6-bb7f7ceffbe3",
+      "name": "Rechazó"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2736,
+        -4896
+      ],
+      "id": "b7f116aa-2328-46e0-846d-92eae623a3aa",
+      "name": "Confirmar a Meta - Pedir cantidad"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"No hay problema 😊\\n\\nCuéntame, ¿qué producto deseas comprar?\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2528,
+        -4480
+      ],
+      "id": "50e7ec4a-cabd-40f3-ad80-e8b5087ae705",
+      "name": "Enviar mensaje Consultar producto",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2736,
+        -4272
+      ],
+      "id": "15fe5055-c20c-47ff-9c32-1214d96d2020",
+      "name": "Confirmar a Meta Consultar producto"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        3744,
+        336
+      ],
+      "id": "a1b5ceac-7c3f-4a2b-b936-df96b002061d",
+      "name": "Confirmar a Meta - No Encontré"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"user_phone\": \"{{ $json.from }}\",\n  \"state\": \"awaiting.selection\",\n  \"data\": {\n    \"needsSelection\": true,\n    \"products\": {{ $json.sugerencias }},\n    \"total\": {{ $json.sessionData.total || 0 }},\n    \"order_id\": {{ $json.sessionData.order_id || null }},\n    \"pending_payment\": \"{{ $json.sessionData.pending_payment || false }}\",\n    \"expected_confirmation\": \"{{ $json.sessionData.expected_confirmation || null }}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3616,
+        -400
+      ],
+      "id": "f382ba27-077c-46f8-bcf3-d7cd00d76191",
+      "name": "Múltiples productos encontrados"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://ventas-backend-gyyx.onrender.com/api/chat-sessions",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "user_phone",
+              "value": "={{ $json.user_phone }}"
+            },
+            {
+              "name": "state",
+              "value": "={{ $json.state }}"
+            },
+            {
+              "name": "data",
+              "value": "={{ $json.data }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        4112,
+        -160
+      ],
+      "id": "4e0327af-7417-45ab-96da-e2c56fb192e2",
+      "name": "Guardar estado - Seleccionar Producto"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messaging_product",
+              "value": "whatsapp"
+            },
+            {
+              "name": "to",
+              "value": "={{ $json.to }}"
+            },
+            {
+              "name": "type",
+              "value": "text"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.text }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        4112,
+        -400
+      ],
+      "id": "a33c169c-9692-4f1e-9113-400abf73b4d4",
+      "name": "Enviar mensaje Encontré >1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        4336,
+        -160
+      ],
+      "id": "e659cca7-65e1-43a4-96c0-d81bd134880d",
+      "name": "Confirmar a Meta - Encontré > 1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7ccf6f43-9da3-424c-9a11-dfc8e295c57c",
+              "name": "numero_usuario",
+              "value": "={{ Number($json.seleccionNumero) }}",
+              "type": "string"
+            },
+            {
+              "id": "6892125d-5f53-4d24-b9da-ba82f25ee301",
+              "name": "session",
+              "value": "={{ $json.sessionData }}",
+              "type": "object"
+            },
+            {
+              "id": "017e15c5-89d8-41df-8152-0639b446d6c9",
+              "name": "user_phone",
+              "value": "={{ $json.from }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2080,
+        -2512
+      ],
+      "id": "ff363320-34b5-4765-85fb-50455ddb45bf",
+      "name": "Número seleccionado"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "53f78066-508f-4641-8507-e6db63f12626",
+              "leftValue": "={{ Number($json.numero_usuario) }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            },
+            {
+              "id": "3b0967a6-786e-4851-9712-6ae7a20e04bb",
+              "leftValue": "={{ Number($json.numero_usuario) }}",
+              "rightValue": "={{ $json.session.products.length }}",
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2256,
+        -2512
+      ],
+      "id": "27a56564-6d24-41cb-871f-c01db0aa6055",
+      "name": "¿Es válido?"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"user_phone\": \"{{ $json.user_phone }}\",\n  \"state\": \"awaiting.confirmation\",\n  \"data\": {\n    \"current_selection\": {\n      \"producto_seleccionado\": {{ $json.session.products[$json.numero_usuario - 1] }},\n      \"needsSelection\": false\n    },\n    \"session\": {{ $json.session }}\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2768,
+        -816
+      ],
+      "id": "7f6f4a05-4f6f-4c4b-a83d-cb3752a0814c",
+      "name": "Seleccionar producto"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.user_phone }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"Has seleccionado:\\n\\n*{{ $json.data.current_selection.producto_seleccionado.nombre }}*\\nPrecio: ${{ $json.data.current_selection.producto_seleccionado.precio }}\\n\\n¿Deseas confirmar la compra? (si/no)\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2960,
+        -1232
+      ],
+      "id": "75ba0120-4118-4c4e-b671-4b6e54157e93",
+      "name": "Enviar mensaje Producto Seleccionado",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        3184,
+        -1424
+      ],
+      "id": "57772792-4389-4ab8-a409-6d046afedd30",
+      "name": "Confirmar a Meta - Confirmar Producto"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/chat-sessions",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "user_phone",
+              "value": "={{ $json.user_phone }}"
+            },
+            {
+              "name": "state",
+              "value": "={{ $json.state }}"
+            },
+            {
+              "name": "data",
+              "value": "={{ $json.data }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2960,
+        -816
+      ],
+      "id": "c47c3f54-3f60-44b2-8aee-65504cc5b708",
+      "name": "Actualizar sesión - Awaiting Confirmation"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.user_phone }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"❌ El número ingresado no es válido.\\n\\nPor favor selecciona una opción del 1 al {{ $json.session.products.length }}.\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2768,
+        -608
+      ],
+      "id": "43b257a0-a0e0-4d52-a168-1ce23c201da1",
+      "name": "Enviar mensaje Número Invalido",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2960,
+        -400
+      ],
+      "id": "31246520-2639-4434-8b56-183dfeb8545a",
+      "name": "Confirmar a Meta - Número Inválido"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3856,
+        -160
+      ],
+      "id": "af4dea91-813d-4c62-8a28-1051d889a233",
+      "name": "No Producto + Datos"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f0155855-948b-47b3-8999-30b4ba85f685",
+              "name": "clientName",
+              "value": "={{ $json.userName }}",
+              "type": "string"
+            },
+            {
+              "id": "bf6ca6a2-49f4-4594-856e-875248eecc90",
+              "name": "user_phone",
+              "value": "={{ $json.from }}",
+              "type": "string"
+            },
+            {
+              "id": "be84625e-51e6-4606-a48d-585d87059328",
+              "name": "state",
+              "value": "awaiting.product",
+              "type": "string"
+            },
+            {
+              "id": "36b3143d-977a-4798-a821-a33edaa52682",
+              "name": "data",
+              "value": "={\n  \"last_search\": \"{{ $json.texto_normalizado || '' }}\",\n  \"needsInput\": true,\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2240,
+        992
+      ],
+      "id": "b757f26d-0c23-45a8-b9bf-5234591ab700",
+      "name": "Preparar consulta Pedir info"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intencion }}",
+                    "rightValue": "confirmacion_positiva",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "c9e6f859-92f8-4a7e-b5fa-7c7fad3bbeac"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Confirmación positiva"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "1efcfbd3-4611-477e-b9a9-0abc9869f2aa",
+                    "leftValue": "={{ $json.intencion }}",
+                    "rightValue": "confirmacion_negativa",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Confirmación negativa"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "22a3e781-d484-4ce0-9ce7-f5b851671772",
+                    "leftValue": "={{ $json.intencion }}",
+                    "rightValue": "consulta_contextual",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Consulta contextual"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "fcf97b0e-d827-40b6-8747-cf84b8c9d7f1",
+                    "leftValue": "={{ $json.intencion }}",
+                    "rightValue": "confirmacion_invalida",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Confirmación inválida"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        2144,
+        -4384
+      ],
+      "id": "4f8e83d0-aeb2-4214-b1e0-2277b1961a09",
+      "name": "¿Confirmó?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ea4eb2b4-dd9d-4e55-8057-b37e73bcbad5",
+              "leftValue": "={{ $json.awaiting_quantity }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "5611cd4a-68d6-43a6-90e7-87c3d74d39e9",
+              "leftValue": "={{ $json.awaiting_quantity.isActive }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "d30e359f-6839-48d1-b44e-cf733f998fe4",
+              "leftValue": "={{ $json.awaiting_quantity.isValidQuantity }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2320,
+        -5536
+      ],
+      "id": "70dbc0b5-fdef-4a01-8030-f8c1d4a85643",
+      "name": "¿Es valida?"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// =============================================\n// ====   awaiting.quantity → DECISION MAKER   ====\n// =============================================\n\nconst text = ($json.texto_normalizado || '').trim();\nconst session = $json.sessionData || {};\nconst sessionState = $json.sessionState;\n\nif (sessionState !== \"awaiting.quantity\") {\n  return {\n    json: {\n      error: true,\n      reason: \"NotAwaitingQuantity\"\n    }\n  };\n}\n\nlet quantity = null;\nconst found = text.match(/\\d+/);\nif (found) quantity = parseInt(found[0]);\n\nif (!quantity || quantity <= 0) {\n  return {\n    json: {\n      isValidQuantity: false,\n      reason: \"InvalidQuantity\"\n    }\n  };\n}\n\nconst product_id = Number(session.product_id);\nconst client_name = $json.userName || \"Cliente\";\nconst client_phone = $json.from;\n\nconst hasOrder = Boolean(session.order_id);\n\nconst action = hasOrder ? \"add_item\" : \"create_order\";\n\n// SALIDA LISTA PARA EL HTTP REQUEST\nreturn {\n  json: {\n    isValidQuantity: true,\n    action,\n    quantity,\n    product_id,\n    client_name,\n    client_phone,\n    order_id: hasOrder ? session.order_id : null\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2528,
+        -5664
+      ],
+      "id": "afebae43-4c50-4059-905b-0a1558dd43bc",
+      "name": "Guardar cantidad"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://ventas-backend-gyyx.onrender.com/api/orders",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"customer\": {\n    \"name\": \"{{ $json.client_name }}\",\n    \"phone\": \"{{ $json.client_phone }}\"\n  },\n  \"items\": [\n    {\n      \"product_id\": {{ $json.product_id }},\n      \"quantity\": {{ $json.quantity }}\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3008,
+        -5968
+      ],
+      "id": "c72d686d-210d-4c1b-9b4e-9254033417c4",
+      "name": "POST Crear Orden"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.data[0].client_phone }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"¡Perfecto {{ $json.data[0].client_name }}! 👌\\n\\nTu pedido ha sido registrado exitosamente:\\n\\n📝 *Resumen de tu orden*\\n\\n* Producto: *{{ $json.data[0].items[0].product_name }}*\\n* Cantidad: *{{ $json.data[0].items[0].quantity }}*\\n* Total: *{{ $json.data[0].items[0].total }}*\\n\\n¿Deseas seguir comprando o prefieres proceder al pago?\\n\\n- Escribe *seguir comprando*\\n- O escribe *pagar ahora*\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3472,
+        -5968
+      ],
+      "id": "99ba954b-5e24-48c7-ac13-ebdc317c3357",
+      "name": "Enviar mensaje Producto Agregado",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        3728,
+        -5952
+      ],
+      "id": "9c89d7a7-4858-462b-a387-2bf63f9b540c",
+      "name": "Confirmar a Meta - Producto Agregado"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3248,
+        -5872
+      ],
+      "id": "38fd163d-7d85-4d3a-9135-c4f6cd0f2a6a",
+      "name": "Datos + Producto agregado"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/chat-sessions",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"user_phone\": \"{{ $json.data[0].client_phone }}\",\n  \"state\": \"awaiting.payment\",\n  \"data\": {{ JSON.stringify({\n    current_order: {\n      order_id: $json.data[0].id,\n      total: $json.data[0].total,\n      payment_status: $json.data[0].payment_status\n    },\n    cart: $json.data[0].items\n  }) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3472,
+        -5760
+      ],
+      "id": "3a3ef813-4857-4723-8d9b-74100f4fcaa7",
+      "name": "Guardar estado - awaiting_next_action"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ==================================\n//     CREAR TRANSACCIÓN EN WOMPI\n// ==================================\n\nconst input = $input.item.json;\n\nconst WOMPI_PUBLIC_KEY = \n\n// Seguridad: verificar estado correcto\nif (sessionState !== \"awaiting.payment\") {\n  return {\n    json: {\n      ok: false,\n      reason: \"NotAwaitingPayment\",\n      state: sessionState\n    }\n  };\n}\n\n// Posibles métodos de pago (JS puro)\nconst metodos = {\n  nequi: [\"nequi\", \"nqui\", \"neqi\", \"transferencia nequi\"],\n  daviplata: [\"daviplata\", \"dp\", \"davi plata\"],\n  efectivo: [\"efectivo\", \"cash\", \"pago en efectivo\"],\n  tarjeta: [\"tarjeta\", \"debito\", \"credito\", \"pse\"]\n};\n\n// Detectar método de pago\nlet metodoDetectado = null;\nfor (const key of Object.keys(metodos)) {\n  if (metodos[key].some(p => texto.includes(p))) {\n    metodoDetectado = key;\n    break;\n  }\n}\n\n// Lógica final\nlet action = \"respuesta_invalida\";\n\nif (metodoDetectado || intencion === \"pago\") {\n  action = \"procesar_pago\";\n} else if (intencion === \"seguir_comprando\") {\n  action = \"volver_a_productos\";\n} else if (intencion === \"cancelar_pago\") {\n  action = \"cancelar_pedido\";\n}\n\n// SALIDA (incluye isValidPayment)\nreturn {\n  json: {\n    ok: true,\n    action,\n    metodo_pago: metodoDetectado,\n    isValidPayment: Boolean(metodoDetectado),\n    texto_normalizado: texto,\n    from,\n    userName,\n    sessionData\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        -2688
+      ],
+      "id": "d702c4bd-bc1e-4331-b0b7-4db838a44959",
+      "name": "Metodo Pago"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "procesar_pago",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "00917243-1251-4be5-adf7-751f8f9cebe4"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Procesar pago"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "09c5c3a0-c153-4992-8dbb-ec1452f0332f",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "volver_a_productos",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Volver"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "0a10f1af-814b-4ffd-933a-67f59be57619",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "cancelar_pedido",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Cancelar"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ad4cb1d2-7f31-452a-9f6a-8505f85c2a79",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "respuesta_invalida",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Error"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        2528,
+        -2704
+      ],
+      "id": "8126f8ec-e24f-4333-8de0-703fe5d6ae3c",
+      "name": "awaiting_payment_actions"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://ventas-backend-gyyx.onrender.com/api/payments",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "order_id",
+              "value": "={{ $json.order_id }}"
+            },
+            {
+              "name": "gateway",
+              "value": "={{ $json.metodo_pago }}"
+            },
+            {
+              "name": "confirmation_code",
+              "value": "={{ $json.confirmation_code }}"
+            },
+            {
+              "name": "status",
+              "value": "={{ $json.status }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2960,
+        -3872
+      ],
+      "id": "5d8e3598-720f-4e4e-9c81-d9b0bf019589",
+      "name": "Crear Pago"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "17a955dd-25e5-49ea-ab04-34eb8cac3b29",
+              "name": "order_id",
+              "value": "={{ $json.sessionData.current_order.order_id }}",
+              "type": "string"
+            },
+            {
+              "id": "1093cfc4-1eb6-4df3-9d9c-e068b6e904d5",
+              "name": "total",
+              "value": "={{ $json.sessionData.current_order.total }}",
+              "type": "string"
+            },
+            {
+              "id": "1bb6c3a2-79dd-44b9-8519-ba1103af10eb",
+              "name": "metodo_pago",
+              "value": "={{ $json.metodo_pago }}",
+              "type": "string"
+            },
+            {
+              "id": "def04e0d-5b3c-46f8-a7c8-4e43adbd927e",
+              "name": "confirmation_code",
+              "value": "={{ $json.metodo_pago === 'efectivo' ? 'N/A' : '' }}",
+              "type": "string"
+            },
+            {
+              "id": "c71c122b-6b38-4abe-833b-8633ac49cc9b",
+              "name": "status",
+              "value": "pending",
+              "type": "string"
+            },
+            {
+              "id": "0cc430c4-86a6-415f-948f-234fba1ccb0d",
+              "name": "from",
+              "value": "={{ $json.from }}",
+              "type": "string"
+            },
+            {
+              "id": "7564fc6e-ba6d-4315-9377-8ad622ac888f",
+              "name": "userName",
+              "value": "={{ $json.userName }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2752,
+        -2880
+      ],
+      "id": "358e8b8d-c2bf-4777-809c-9e2d5147298d",
+      "name": "Preparar datos para el pago"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"Gracias {{ $json.userName }}. Hemos registrado tu método de pago *{{ $json.metodo_pago }}*.\\n\\nTu pedido está casi listo. Si pagaste por transferencia, por favor envia el código de confirmación o el comprobante. 📝\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2960,
+        -3488
+      ],
+      "id": "8f742537-9345-4fd4-965d-1cd068c53938",
+      "name": "Enviar mensaje Payment",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/chat-sessions",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "user_phone",
+              "value": "={{ $json.from }}"
+            },
+            {
+              "name": "state",
+              "value": "awaiting.payment_confirmation"
+            },
+            {
+              "name": "data",
+              "value": "={\n  \"order_id\": {{ $json.order_id }},\n  \"total\": {{ $json.total }},\n  \"payment_method\": \"{{ $json.metodo_pago }}\",\n  \"pending_payment\": true,\n  \"expected_confirmation\": \"payment_confirmation\"\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2960,
+        -3280
+      ],
+      "id": "1c866dc5-d299-4e74-ac27-b353da0e7364",
+      "name": "Guardar estado - awaiting_payment_confirmation"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        3168,
+        -3488
+      ],
+      "id": "d75d5d0a-738a-413f-b0f5-76e113976a26",
+      "name": "Confirmar a Meta Payment"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"No pude detectar tu método de pago 😕.\\n\\nElige una opción:\\n💜 Nequi\\n❤ Daviplata\\n💵 Efectivo\\n💳 Tarjeta\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2768,
+        -1840
+      ],
+      "id": "ad27ad9c-66f2-49b2-8fe8-aeaaa3ff2f7f",
+      "name": "send_whatsapp_invalid_payment_response",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2960,
+        -1632
+      ],
+      "id": "c03778a4-9da2-476d-899c-23077cfa77ff",
+      "name": "Confirmar a Meta Invalid Payment"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_received"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -32,
+        336
+      ],
+      "id": "74bd9230-ee21-4af1-8dbe-f84fd5fe59d0",
+      "name": "Register Analytics - message_received"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3728,
+        -6160
+      ],
+      "id": "209a8894-d9fb-4386-a8e8-8bb662f6fc20",
+      "name": "Register Analytics - message_sent - Producto agregado"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2736,
+        -5120
+      ],
+      "id": "2a919894-5d07-48cc-8d74-81fd57babb06",
+      "name": "Register Analytics - message_sent - Pedir cantidad"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2736,
+        -4480
+      ],
+      "id": "bee90724-8e22-44cb-96d7-0fadc0756a43",
+      "name": "Register Analytics - message_sent - Consultar producto"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3168,
+        -3680
+      ],
+      "id": "527a5e0f-3b59-426b-9b1b-bf742695a015",
+      "name": "Register Analytics - message_sent - Payment"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2960,
+        -1840
+      ],
+      "id": "f14b8a31-8947-4d1d-827b-a9ba29c00a1f",
+      "name": "Register Analytics - message_sent - Payment Response"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3184,
+        -1232
+      ],
+      "id": "c81014aa-6b8e-4146-8120-9af277a740a0",
+      "name": "Register Analytics - message_sent - Producto seleccionado"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2960,
+        -608
+      ],
+      "id": "e1bfc0d2-9f97-4e03-ae35-a37be68d5af5",
+      "name": "Register Analytics - message_sent - Numero inválido"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        4064,
+        -1216
+      ],
+      "id": "c11723c8-e797-4f69-b777-34436be5da1d",
+      "name": "Register Analytics - message_sent - Pedir info"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        4336,
+        48
+      ],
+      "id": "8ecf0463-15a4-4ea6-9f8e-06dc864c7d60",
+      "name": "Register Analytics - message_sent - Encontré > 1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2768,
+        -208
+      ],
+      "id": "82121f41-9b39-46d5-9596-7e993836040f",
+      "name": "Register Analytics - message_sent - No producto"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3552,
+        752
+      ],
+      "id": "abb4b9d4-e007-40c6-9aa7-830e474a4a80",
+      "name": "Register Analytics - message_sent - No encontré"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3328,
+        1344
+      ],
+      "id": "bc383a78-25ce-4b1e-a212-9deaecf1c140",
+      "name": "Register Analytics - message_sent -"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        5056,
+        -1024
+      ],
+      "id": "792ff10e-caeb-4411-b31b-b8e4d6d07a34",
+      "name": "Register Analytics - message_sent - Encontré"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "189f9a0d-e546-484b-baa1-bb4cee4f89eb",
+              "leftValue": "={{ $json.session.data }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        -336
+      ],
+      "id": "0c774197-e494-4b81-a2bf-4daf6fde8673",
+      "name": "¿Existía sesión?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "session_started"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1104,
+        -352
+      ],
+      "id": "31fef0a1-abc7-4466-b76e-105f82a88a38",
+      "name": "Register Analytics - session_started"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "session_state_changed:awaiting.payment"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3728,
+        -5760
+      ],
+      "id": "9c5a9fca-4752-4264-9297-8dd47c937622",
+      "name": "Register Analytics - session_state_changed"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "session_state_changed:awaiting_quantity"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2736,
+        -4688
+      ],
+      "id": "f81566a0-6f70-4014-a0f0-0ee223783477",
+      "name": "Register Analytics - session_state_changed - awaiting_quantity"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "session_state_changed:idle"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2736,
+        -4064
+      ],
+      "id": "f53c1606-c7ac-489b-83e2-d456804e5d6c",
+      "name": "Register Analytics - session_state_changed - Idle"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "session_state_changed:awaiting_payment_confirmation"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3168,
+        -3280
+      ],
+      "id": "91d571a7-9071-42ff-b9ed-df765f8f641d",
+      "name": "Register Analytics - session_state_changed - awaiting_payment_confirmation"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "session_state_changed:awaiting_confirmation"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3200,
+        -816
+      ],
+      "id": "34ce48de-3121-4b04-b56c-49cd64fd0eee",
+      "name": "Register Analytics - session_state_changed - awaiting_confirmation"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "session_state_changed:awaiting_product"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        4064,
+        -1440
+      ],
+      "id": "5d8da1e2-3ef4-4d31-9109-fe6c88d126e9",
+      "name": "Register Analytics - session_state_changed - awaiting_product"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "session_state_changed:awaiting_selection"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        4336,
+        272
+      ],
+      "id": "356cdff1-b796-4bdf-9cde-ecb3bebcb6d7",
+      "name": "Register Analytics - session_state_changed - awaiting_selection"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "session_state_changed:awaiting_confirmation"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        4784,
+        -496
+      ],
+      "id": "7da0b70d-1f56-4a2b-923b-e0723ebfd21d",
+      "name": "Register Analytics - session_state_changed - awaiting_confirmation1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "product_view"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        5056,
+        -640
+      ],
+      "id": "816f9a57-e92a-4ec1-b8e2-4be7ef48901a",
+      "name": "Register Analytics - product_view - Encontré > 1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "product_view"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        5056,
+        -832
+      ],
+      "id": "9b8a6d55-21da-47b9-b7a4-7e25770ff982",
+      "name": "Register Analytics - product_view - Encontré < 1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "checkout_started"
+            },
+            {
+              "name": "value",
+              "value": "={{ $json.data.product_price }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2528,
+        -4896
+      ],
+      "id": "d179f9c3-a77c-447a-8bd0-cd2957b64acc",
+      "name": "Register Analytics - checkout_started - Pedir cantidad1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "payment_pending"
+            },
+            {
+              "name": "value",
+              "value": "={{ $json.total }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2960,
+        -3680
+      ],
+      "id": "8704d1c1-8178-4b09-974c-0c38cda7c0d9",
+      "name": "Register Analytics - payment_pending - Payment"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $json;\n\n// Asegura la estructura\nconst productos = Array.isArray(data.products) ? data.products : [];\n\nlet respuestaTipo = \"sin_resultados\";\nlet sugerencias = [];\nlet producto = null;\nlet cantidad = productos.length;\n\nif (cantidad === 1) {\n  respuestaTipo = \"unico\";\n  const p = productos[0];\n\n  producto = {\n    id: p.id_producto,\n    nombre: p.nombre,\n    precio: p.precio,\n    existencias: p.existencias,\n    imagen: p.url_imagen\n  };\n  \n} else if (cantidad > 1) {\n  respuestaTipo = \"sugerencias\";\n  sugerencias = productos.map(p => ({\n    id: p.id_producto,\n    nombre: p.nombre,\n    precio: p.precio,\n    existencias: p.existencias,\n    imagen: p.url_imagen\n  }));\n}\n\nreturn {\n  respuestaTipo,\n  sugerencias,\n  producto,\n  cantidad\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3616,
+        -176
+      ],
+      "id": "0a21cbb2-6814-48bf-a1cf-8b93c93b2cdf",
+      "name": "Tipo de respuesta"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.respuestaTipo }}",
+                    "rightValue": "unico",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "c9e7d078-257d-414f-a269-f3e7ad9900a2"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Unico"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e9867140-04d2-41af-bcd6-503f528a918a",
+                    "leftValue": "={{ $json.respuestaTipo }}",
+                    "rightValue": "sugerencias",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Sugerencias"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "70a8ce23-93e3-4e93-b677-42331357cd4c",
+                    "leftValue": "={{ $json.respuestaTipo }}",
+                    "rightValue": "sin_resultados",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Sin resultados"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        3184,
+        -400
+      ],
+      "id": "4a7192c2-62c2-4f67-83b3-be53cdd023bf",
+      "name": "Tipo de respuesta1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/chat-sessions",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "user_phone",
+              "value": "={{ $json.from }}"
+            },
+            {
+              "name": "state",
+              "value": "={{ $json.newState }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2528,
+        -4272
+      ],
+      "id": "2abb2f27-4826-4171-9fd8-0b8847904e54",
+      "name": "Actualizar sesión - awaiting.product"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"Hmm 🤔 no estoy seguro de haber entendido tu respuesta.\\n\\nPor favor dime:\\n👉 *sí* para continuar\\n👉 *no* para cancelar\\n\\nAsí puedo ayudarte mejor ☺\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2336,
+        -3872
+      ],
+      "id": "7527a83c-a066-43fb-abbf-db5266ceab14",
+      "name": "Enviar mensaje Mensaje inválido",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2528,
+        -3088
+      ],
+      "id": "17733cb2-0613-48d6-802f-47989dd478d6",
+      "name": "Register Analytics - message_sent - mensaje inválido"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2528,
+        -2880
+      ],
+      "id": "7af0692f-19a2-46fe-abc9-9dfd1a755f35",
+      "name": "Confirmar a Meta Mensaje inválido"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"Ups 😅 esa cantidad no parece válida.\\n\\nPor favor escribe *solo un número*, por ejemplo:\\n* 1\\n* 2\\n* 5\\n\\n¿Cuántas unidades deseas?\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2528,
+        -5408
+      ],
+      "id": "227334e9-240a-489f-90ca-83a41e1f3d36",
+      "name": "Enviar mensaje Cantidad inválida",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2736,
+        -5504
+      ],
+      "id": "b1402f1a-de85-48be-81ca-7276ad7f01b0",
+      "name": "Register Analytics - message_sent - Cantidad inválida"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2736,
+        -5296
+      ],
+      "id": "45137f1e-5c75-4e9b-b1b1-8541fdf24c65",
+      "name": "Confirmar a Meta - Cantidad inválida"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"¡Perfecto! ☺\\nSigamos entonces.\\n\\n¿Qué otro producto te gustaría agregar a tu pedido?\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2752,
+        -2672
+      ],
+      "id": "0426d939-aeed-4c40-9654-3015a34d70c8",
+      "name": "Enviar mensaje Volver",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2960,
+        -3088
+      ],
+      "id": "01168b7f-25db-4a31-adbe-c76684f9cb62",
+      "name": "Register Analytics - message_sent - Volver"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2960,
+        -2880
+      ],
+      "id": "9005ea57-2ad2-4259-acfc-f4fd159d7140",
+      "name": "Confirmar a Meta Payment1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/chat-sessions",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "user_phone",
+              "value": "={{ $json.from }}"
+            },
+            {
+              "name": "state",
+              "value": "awaiting.product"
+            },
+            {
+              "name": "data",
+              "value": "={\n  \"order_id\": {{ $json.sessionData.current_order.order_id }},\n  \"total\": {{ $json.sessionData.current_order.total }},\n  \"pending_payment\": true,\n  \"expected_confirmation\": \"payment_confirmation\"\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2768,
+        -2432
+      ],
+      "id": "95bdda8d-49b4-40cb-b8dc-d4008d184276",
+      "name": "Guardar estado - awaiting_product"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"Entendido 👍\\nHe cancelado tu compra por ahora.\\n\\nSi más adelante deseas volver a comprar, solo dimer *hola* ☺\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2768,
+        -2240
+      ],
+      "id": "573f56e1-48bf-4288-a7ec-ed779ec02c78",
+      "name": "Enviar mensaje Cancelar",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2960,
+        -2432
+      ],
+      "id": "20504497-7588-4de1-84dd-c1cee4993d5b",
+      "name": "Register Analytics - message_sent - Cancelar"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2960,
+        -2240
+      ],
+      "id": "eabc04ff-8153-434d-9b43-278c65a14ba3",
+      "name": "Confirmar a Meta Cancelar"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/chat-sessions",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "user_phone",
+              "value": "={{ $json.from }}"
+            },
+            {
+              "name": "state",
+              "value": "idle"
+            },
+            {
+              "name": "data",
+              "value": "={}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2768,
+        -2048
+      ],
+      "id": "17180542-3f90-46eb-946e-0b52b32079d0",
+      "name": "Guardar estado - idle"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "session_state_changed:awaiting_payment_confirmation"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2960,
+        -2048
+      ],
+      "id": "ae59be69-b0c4-4d6a-877d-ccd18f9c6e54",
+      "name": "Register Analytics - session_state_changed - idle"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "session_state_changed:awaiting.product"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2960,
+        -2672
+      ],
+      "id": "a4f6d1e9-39e7-4770-86bd-283d15a20699",
+      "name": "Register Analytics - session_state_changed - awaiting_product2"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ========================================\n//     EXTRACTOR DE TERMINO DE PRODUCTO\n// ========================================\n\nconst input = $input.item.json;\nconst texto = input.texto_normalizado || \"\";\n\n// Filtra palabras\nconst stopwords = [\n  \"quiero\", \"comprar\", \"compra\", \"agregar\", \"otro\", \"otra\",\n  \"seguir\", \"productos\", \"productos\",\n  \"me\", \"gustaria\", \"deseo\", \"un\", \"una\", \"unos\", \"unas\",\n  \"por\", \"favor\", \"para\", \"el\", \"la\", \"los\", \"las\",\n  \"busco\", \"ver\", \"mostrar\", \"catalogo\"\n];\n\n// Limpia\nlet palabras = texto\n  .split(\" \")\n  .map(p => p.trim())\n  .filter(p => p.length > 2)\n  .filter(p => !stopwords.includes(p));\n\nlet terminoBusqueda;\nif (palabras.length === 0) {\n  terminoBusqueda = \"productos\";\n} else {\n  terminoBusqueda = palabras.slice(0, 4).join(\" \");\n}\n\nconst terminoValido = \n  terminoBusqueda &&\n  terminoBusqueda.length >= 3 &&\n  ![\"comprar\", \"producto\", \"productos\", \"catalogo\"].includes(terminoBusqueda);\n\nreturn {\n  json: {\n    ...input,\n    terminoBusqueda: terminoValido ? terminoBusqueda : null,\n    requiere_producto: !terminoValido\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        -2288
+      ],
+      "id": "daa3f3a2-7ce3-4f46-97f3-84488f908edd",
+      "name": "Extraer producto"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ff6eb374-4434-4839-af34-be29ec10bb1a",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "create_order",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2736,
+        -5664
+      ],
+      "id": "7d6c805f-16bd-4c80-99b7-e4fd39e29790",
+      "name": "¿Creamos orden?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://ventas-backend-gyyx.onrender.com/api/orders/{{ $json.order_id }}/items",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product_id\": {{ $json.product_id }},\n  \"quantity\": {{ $json.quantity }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3008,
+        -5552
+      ],
+      "id": "6b51c1d3-28b8-4036-8331-cdfa9ecf7978",
+      "name": "POST Agregar Item"
+    },
+    {
+      "parameters": {
+        "url": "=https://ventas-backend-gyyx.onrender.com/api/orders/{{ $json.order_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3008,
+        -5360
+      ],
+      "id": "955ecffa-39e6-42a6-b038-c0a3ea93acfa",
+      "name": "GET Orden"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ================================\n// Construir mensaje resumen orden\n// ================================\n\nconst order = $json.data;\n\n// Validación defensiva\nif (!order || !Array.isArray(order.items)) {\n  return {\n    json: {\n      messaging_product: \"whatsapp\",\n      to: $json.data?.client_phone || $json.from,\n      type: \"text\",\n      text: {\n        preview_url: false,\n        body: \"⚠️ No pude generar el resumen de tu pedido. Intenta nuevamente.\"\n      }\n    }\n  };\n}\n\n// Construimos el resumen\nlet message = `¡Excelente! 😁 He agregado el producto a tu pedido.\\n\\n`;\nmessage += `📝 *Resumen de tu orden*\\n\\n`;\n\norder.items.forEach((item, index) => {\n  message += `${index + 1}. ${item.product_name} — Cantidad: ${item.quantity} — Total: $${item.total}\\n`;\n});\n\nmessage += `\\n💰 *Total del pedido:* $${order.total}\\n\\n`;\nmessage += `¿Deseas seguir comprando o prefieres proceder al pago?\\n\\n`;\nmessage += `- Escribe *seguir comprando*\\n`;\nmessage += `- O escribe *pagar ahora*`;\n\n// Retornamos JSON listo para WhatsApp\nreturn {\n  json: {\n    messaging_product: \"whatsapp\",\n    to: order.client_phone,\n    type: \"text\",\n    text: {\n      preview_url: false,\n      body: message\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3248,
+        -5552
+      ],
+      "id": "ca230e72-e1ff-42a8-b84e-d300528bb007",
+      "name": "Preparar payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messaging_product",
+              "value": "={{ $json.messaging_product }}"
+            },
+            {
+              "name": "to",
+              "value": "={{ $json.to }}"
+            },
+            {
+              "name": "type",
+              "value": "={{ $json.type }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.text }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3472,
+        -5552
+      ],
+      "id": "7c78ff46-505f-4077-9c27-cb805392c7ab",
+      "name": "Enviar mensaje Producto Agregado a orden",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3728,
+        -5552
+      ],
+      "id": "dd93596d-d70f-46a8-9c9d-896432fc04de",
+      "name": "Register Analytics - message_sent - Producto agregado a orden"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        3728,
+        -5344
+      ],
+      "id": "920963ba-8488-428f-add1-96f1a260fd69",
+      "name": "Confirmar a Meta - Producto Agregado a orden"
+    },
+    {
+      "parameters": {
+        "url": "=https://ventas-backend-gyyx.onrender.com/api/orders/{{ $json.order_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3008,
+        -5776
+      ],
+      "id": "fd3b9aaa-ee6c-4357-8222-699c957acb23",
+      "name": "GET Orden1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/chat-sessions",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3472,
+        -5184
+      ],
+      "id": "d4b6bacd-53c7-4f0b-8cd1-8559ebf638be",
+      "name": "Guardar estado - awaiting_next_action1"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Recibimos el array de productos\nconst products = typeof $json.data.products === \"string\"\n  ? JSON.parse($json.data.products)\n  : $json.data.products;\n\n// Construimos mensaje\nlet message = `Encontré *${products.length}* productos relacionados:\\n\\n`;\n\nproducts.forEach((p, i) => {\n  message += `${i + 1}. *${p.nombre}* — $${p.precio}\\n`;\n});\n\nmessage += `\\n📌 Envía *el número del producto* para seleccionarlo.`;\n\n// Retornamos JSON válido (no array)\nreturn {\n  json: {\n    messaging_product: \"whatsapp\",\n    to: $json.user_phone,\n    type: \"text\",\n    text: {\n      preview_url: false,\n      body: message\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3856,
+        -400
+      ],
+      "id": "19c9175d-4a2a-44d7-8f5e-4c5078e611b2",
+      "name": "Generar payload Productos"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  json: {\n    user_phone: $json.data.client_phone,\n    state: \"awaiting.payment\",\n    data: {\n      order_id: $json.data.id,\n      total: $json.data.total,\n      payment_status: $json.data.payment_status,\n      items: $json.data.items,\n      needsPayment: true,\n      timestamp: new Date().toISOString()\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3248,
+        -5184
+      ],
+      "id": "f710608a-f9af-4151-991b-74f696b082e1",
+      "name": "Preparar Datos"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.sub_intencion }}",
+                    "rightValue": "horario",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "3b872869-6c5e-4099-b86f-4342d27a7ef6"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Horario"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e5ab85fb-2fcc-4ff5-8b23-9b3f8bd33754",
+                    "leftValue": "={{ $json.sub_intencion }}",
+                    "rightValue": "envio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Envío"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "534dea71-2409-4eb1-9c26-9bef97cf3931",
+                    "leftValue": "={{ $json.sub_intencion }}",
+                    "rightValue": "pagos",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Pagos"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a072ed18-12c7-4ede-bbd1-b221d64146ff",
+                    "leftValue": "={{ $json.sub_intencion }}",
+                    "rightValue": "ubicacion",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Ubicacion"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "40dbf775-6d04-4e95-ac59-1152ffd7d197",
+                    "leftValue": "={{ $json.otros }}",
+                    "rightValue": "Otros",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Otros"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        2320,
+        -4288
+      ],
+      "id": "270eaef1-5ff5-4c32-b762-239e4a348f38",
+      "name": "SubIntencion"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"¡Claro! 😊 Te cuento nuestros horarios de atención:\\n\\n📅 *Lunes a Viernes*:\\n⏰ 8:00 a. m. - 7:30 p. m.\\n\\n📅 *Domingos*:\\n⏰ 9:00 a. m. - 3:00 p. m.\\n\\nCuando quieras continuamos con tu pedido 👌\\n👉 Escríbeme *sí* para seguir\\n👉 O *no* si deseas cancelar\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2528,
+        -4064
+      ],
+      "id": "10cc4d31-5147-4529-8cec-164c48874315",
+      "name": "Enviar mensaje Horario",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2736,
+        -3872
+      ],
+      "id": "b728c2d5-58cc-4835-9a30-3a396d8bdf68",
+      "name": "Confirmar a Meta Horario"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"🚚 _Información sobre nuestros envíos_:\\n\\n📍 *Envíos locales (misma ciudad)*:\\n- Se realizan con domiciliario\\n- Pueden ser contra entrega ✅\\n\\n🚛 *Envíos a otras ciudades (vía terminal)*:\\n- Deben pagarse por adelantado\\n- ❌ No son contra entrega\\n- Algunos clientes pueden usar crédito interno, si ya lo tienen aprobado\\n\\n⏳ _El tiempo de entrega depende del destino_.\\n\\n¿Deseas continuar con tu pedido o necesitas ayuda con algo más? ☺\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2528,
+        -3872
+      ],
+      "id": "c6d3b8ed-505e-4826-a9e6-5375577e3104",
+      "name": "Enviar mensaje Envío",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2736,
+        -3680
+      ],
+      "id": "2662e91f-7160-4b09-8b77-6e9938002555",
+      "name": "Confirmar a Meta Envío"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"💳 *Nuestros métodos de pago son*:\\n\\n🏦 *Transferencia a cuenta Bancolombia*\\n🤝 *Crédito interno* (solo para clientes previamente aprobados)\\n\\nSi deseas pagar o continuar comprando, dime cómo te gustaría seguir ☺\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2528,
+        -3680
+      ],
+      "id": "9ca39c5b-eda7-44c2-9373-399cf64c428f",
+      "name": "Enviar mensaje Pagos",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2736,
+        -3488
+      ],
+      "id": "8de203ec-673e-4ae2-8ccb-7093137c3bfe",
+      "name": "Confirmar a Meta Pagos"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"📍 *Nuestra ubicación*\\n\\nPuedes visitarnos en el siguiente punto:\\n\\n👉 https://www.google.com/maps?q=8.758735656738281,-75.88396453857422&z=17&hl=es\\n\\nSi prefieres, también podemos ayudarte con envío a domicilio 🚚\\n\\nCuando gustes, dime:\\n👉 *sí* para continuar con la compra\\n👉 *no* para cancelar\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2528,
+        -3488
+      ],
+      "id": "5a018cdd-a6a4-4c63-a32b-7e9b098b0d23",
+      "name": "Enviar mensaje Ubicación",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2736,
+        -3280
+      ],
+      "id": "1104caa8-d077-433f-ad80-7a415889e7d4",
+      "name": "Confirmar a Meta Ubicación"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"🤔 ¡Buena pregunta!\\n\\nCon gusto puedo ayudarte con información sobre:\\n- Horarios\\n- Envíos\\n- Métodos de pago\\n- Ubicación\\n- O continuar con tu compra\\n\\nSolo dime qué necesitas y seguimos ☺\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2528,
+        -3280
+      ],
+      "id": "d2f627e8-22bd-4ece-8887-475c602d9999",
+      "name": "Enviar mensaje Otros",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2736,
+        -3088
+      ],
+      "id": "2c48d7dd-5946-44bb-8529-bb507d68dd4b",
+      "name": "Confirmar a Meta Otros"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v22.0/803887342816261/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": \"¿Qué producto estás buscando? ☺\\nPuedes escribir el nombre o modelo.\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2528,
+        -2240
+      ],
+      "id": "0a4c2523-2dfd-4aac-a660-ca870ba018c4",
+      "name": "Enviar mensaje Requiere Producto",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tRMaK1Qst0h0x0IM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2768,
+        -1232
+      ],
+      "id": "ee4bc087-f052-4214-ae1a-c8d398e7dd4c",
+      "name": "Confirmar a Meta Requiere producto"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "message_sent"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2784,
+        -1424
+      ],
+      "id": "a47cec33-bcdf-4d6e-8c86-1942f5093a9f",
+      "name": "Register Analytics - message_sent - Requiere producto"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f7f48be6-eba3-42c9-9614-c243a1240b5c",
+              "leftValue": "={{ $json.requiere_producto }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2256,
+        -2288
+      ],
+      "id": "4bbcc285-8576-4177-981b-f09af4d7528e",
+      "name": "¿Requiere producto?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/chat-sessions",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2784,
+        -1632
+      ],
+      "id": "3651e462-5bed-4098-a47e-d844797c97a5",
+      "name": "Guardar estado - awaiting_product1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ventas-backend-gyyx.onrender.com/api/analytics",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "metric_type",
+              "value": "session_state_changed:awaiting.product"
+            },
+            {
+              "name": "value",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2960,
+        -1424
+      ],
+      "id": "f804a33b-e009-4d37-99df-f7e918075afc",
+      "name": "Register Analytics - change_state - awaiting.product"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  json: {\n    user_phone: $json.from,\n    state: \"awaiting.product\",\n    data: {\n      order_id: $json.sessionData?.current_order?.order_id ?? null\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2528,
+        -2432
+      ],
+      "id": "07024b51-7922-42ec-b043-bc7ce7890a28",
+      "name": "Preparar consulta - Necesita producto"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - message_received",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Log Incoming Message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "¿Es mensaje válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "¿Es mensaje válido?": {
+      "main": [
+        [
+          {
+            "node": "Obtener estado de conversación",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Estado / Datos",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Mensaje no valido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rutear por intención": {
+      "main": [
+        [
+          {
+            "node": "Validar cantidad",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Confirmó?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Metodo Pago",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Número seleccionado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extraer producto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Soporte",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Saludo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [],
+        [],
+        [],
+        [
+          {
+            "node": "Otro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Otro": {
+      "main": [
+        [
+          {
+            "node": "Unir Respuestas",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Soporte": {
+      "main": [
+        [
+          {
+            "node": "Unir Respuestas",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Saludo": {
+      "main": [
+        [
+          {
+            "node": "Unir Respuestas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unir Respuestas": {
+      "main": [
+        [
+          {
+            "node": "Preparar payload WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - message_sent -",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clasificar por palabras clave": {
+      "main": [
+        [
+          {
+            "node": "Log Clasification message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Rutear por intención",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          },
+          {
+            "node": "Producto + Datos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "No Producto + Datos",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Preparar payload WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Log Incoming Message": {
+      "main": [
+        []
+      ]
+    },
+    "Log Clasification message": {
+      "main": [
+        []
+      ]
+    },
+    "Log Message Recived": {
+      "main": [
+        []
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Log Message Recived",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar producto": {
+      "main": [
+        [
+          {
+            "node": "Tipo de respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar consulta del producto": {
+      "main": [
+        [
+          {
+            "node": "¿Necesita información?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Necesita información?": {
+      "main": [
+        [
+          {
+            "node": "Preparar mensaje para pedir info",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar producto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar mensaje para pedir info": {
+      "main": [
+        [
+          {
+            "node": "Pedir info",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Preparar JSON - Esperando Producto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir info": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta - Pedir info",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - message_sent - Pedir info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar JSON - Esperando Producto": {
+      "main": [
+        [
+          {
+            "node": "Guardar estado - Esperando producto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener estado de conversación": {
+      "main": [
+        [
+          {
+            "node": "Estado / Datos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "¿Existía sesión?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Estado / Datos": {
+      "main": [
+        [
+          {
+            "node": "Clasificar por palabras clave",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar cantidad": {
+      "main": [
+        [
+          {
+            "node": "¿Es valida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar producto Realizar compra": {
+      "main": [
+        [
+          {
+            "node": "Tipo de respuesta1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Menciona producto?": {
+      "main": [
+        [
+          {
+            "node": "Buscar producto Realizar compra",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar mensaje No Producto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje No Producto": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta - No producto",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - message_sent - No producto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Encontró": {
+      "main": [
+        [
+          {
+            "node": "Flatten Product Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Encontré": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta - Encontré",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - message_sent - Encontré",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - product_view - Encontré < 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Producto + Datos": {
+      "main": [
+        [
+          {
+            "node": "Enviar mensaje Encontré",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Guardar estado - Confirmar producto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flatten Product Result": {
+      "main": [
+        [
+          {
+            "node": "Producto + Datos",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Producto confirmado": {
+      "main": [
+        [
+          {
+            "node": "Actualizar sesión",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Enviar mensaje Pedir cantidad",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - checkout_started - Pedir cantidad1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rechazó": {
+      "main": [
+        [
+          {
+            "node": "Actualizar sesión - awaiting.product",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Enviar mensaje Consultar producto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Pedir cantidad": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta - Pedir cantidad",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - message_sent - Pedir cantidad",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Consultar producto": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta Consultar producto",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - message_sent - Consultar producto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje No encontré": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta - No Encontré",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - message_sent - No encontré",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Múltiples productos encontrados": {
+      "main": [
+        [
+          {
+            "node": "Generar payload Productos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Guardar estado - Seleccionar Producto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Encontré >1": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta - Encontré > 1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - message_sent - Encontré > 1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - product_view - Encontré > 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Número seleccionado": {
+      "main": [
+        [
+          {
+            "node": "¿Es válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es válido?": {
+      "main": [
+        [
+          {
+            "node": "Seleccionar producto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar mensaje Número Invalido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seleccionar producto": {
+      "main": [
+        [
+          {
+            "node": "Enviar mensaje Producto Seleccionado",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Actualizar sesión - Awaiting Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Producto Seleccionado": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta - Confirmar Producto",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - message_sent - Producto seleccionado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Número Invalido": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta - Número Inválido",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - message_sent - Numero inválido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Producto + Datos": {
+      "main": [
+        [
+          {
+            "node": "Tipo de respuesta1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar consulta Pedir info": {
+      "main": [
+        [
+          {
+            "node": "Guardar estado - Esperando producto",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Pedir info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Confirmó?": {
+      "main": [
+        [
+          {
+            "node": "Producto confirmado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazó",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SubIntencion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar mensaje Mensaje inválido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es valida?": {
+      "main": [
+        [
+          {
+            "node": "Guardar cantidad",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar mensaje Cantidad inválida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar cantidad": {
+      "main": [
+        [
+          {
+            "node": "¿Creamos orden?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST Crear Orden": {
+      "main": [
+        [
+          {
+            "node": "Datos + Producto agregado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Producto Agregado": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta - Producto Agregado",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - message_sent - Producto agregado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Datos + Producto agregado": {
+      "main": [
+        [
+          {
+            "node": "Enviar mensaje Producto Agregado",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Guardar estado - awaiting_next_action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Metodo Pago": {
+      "main": [
+        [
+          {
+            "node": "awaiting_payment_actions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "awaiting_payment_actions": {
+      "main": [
+        [
+          {
+            "node": "Preparar datos para el pago",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar mensaje Volver",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Guardar estado - awaiting_product",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar mensaje Cancelar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Guardar estado - idle",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "send_whatsapp_invalid_payment_response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar datos para el pago": {
+      "main": [
+        [
+          {
+            "node": "Crear Pago",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Enviar mensaje Payment",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Guardar estado - awaiting_payment_confirmation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - payment_pending - Payment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Payment": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta Payment",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - message_sent - Payment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "send_whatsapp_invalid_payment_response": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta Invalid Payment",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - message_sent - Payment Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Existía sesión?": {
+      "main": [
+        [
+          {
+            "node": "Register Analytics - session_started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar estado - awaiting_next_action": {
+      "main": [
+        [
+          {
+            "node": "Register Analytics - session_state_changed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar estado - awaiting_payment_confirmation": {
+      "main": [
+        [
+          {
+            "node": "Register Analytics - session_state_changed - awaiting_payment_confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar sesión - Awaiting Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Register Analytics - session_state_changed - awaiting_confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar estado - Esperando producto": {
+      "main": [
+        [
+          {
+            "node": "Register Analytics - session_state_changed - awaiting_product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar estado - Seleccionar Producto": {
+      "main": [
+        [
+          {
+            "node": "Register Analytics - session_state_changed - awaiting_selection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar estado - Confirmar producto": {
+      "main": [
+        [
+          {
+            "node": "Register Analytics - session_state_changed - awaiting_confirmation1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar sesión": {
+      "main": [
+        [
+          {
+            "node": "Register Analytics - session_state_changed - awaiting_quantity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tipo de respuesta": {
+      "main": [
+        [
+          {
+            "node": "No Producto + Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tipo de respuesta1": {
+      "main": [
+        [
+          {
+            "node": "Encontró",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Múltiples productos encontrados",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar mensaje No encontré",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Preparar JSON - Esperando Producto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar sesión - awaiting.product": {
+      "main": [
+        [
+          {
+            "node": "Register Analytics - session_state_changed - Idle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Mensaje inválido": {
+      "main": [
+        [
+          {
+            "node": "Register Analytics - message_sent - mensaje inválido",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Confirmar a Meta Mensaje inválido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Cantidad inválida": {
+      "main": [
+        [
+          {
+            "node": "Register Analytics - message_sent - Cantidad inválida",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Confirmar a Meta - Cantidad inválida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Volver": {
+      "main": [
+        [
+          {
+            "node": "Register Analytics - message_sent - Volver",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Confirmar a Meta Payment1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar estado - awaiting_product": {
+      "main": [
+        [
+          {
+            "node": "Register Analytics - session_state_changed - awaiting_product2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Cancelar": {
+      "main": [
+        [
+          {
+            "node": "Register Analytics - message_sent - Cancelar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Confirmar a Meta Cancelar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar estado - idle": {
+      "main": [
+        [
+          {
+            "node": "Register Analytics - session_state_changed - idle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer producto": {
+      "main": [
+        [
+          {
+            "node": "¿Requiere producto?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Creamos orden?": {
+      "main": [
+        [
+          {
+            "node": "POST Crear Orden",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GET Orden1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "POST Agregar Item",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GET Orden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST Agregar Item": {
+      "main": [
+        []
+      ]
+    },
+    "GET Orden": {
+      "main": [
+        [
+          {
+            "node": "Preparar payload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Preparar Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar payload": {
+      "main": [
+        [
+          {
+            "node": "Enviar mensaje Producto Agregado a orden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Producto Agregado a orden": {
+      "main": [
+        [
+          {
+            "node": "Register Analytics - message_sent - Producto agregado a orden",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Confirmar a Meta - Producto Agregado a orden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET Orden1": {
+      "main": [
+        [
+          {
+            "node": "Datos + Producto agregado",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Generar payload Productos": {
+      "main": [
+        [
+          {
+            "node": "Enviar mensaje Encontré >1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Datos": {
+      "main": [
+        [
+          {
+            "node": "Guardar estado - awaiting_next_action1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Horario": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta Horario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SubIntencion": {
+      "main": [
+        [
+          {
+            "node": "Enviar mensaje Horario",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar mensaje Envío",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar mensaje Pagos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar mensaje Ubicación",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar mensaje Otros",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Envío": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta Envío",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Pagos": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta Pagos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Ubicación": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta Ubicación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Otros": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta Otros",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensaje Requiere Producto": {
+      "main": [
+        [
+          {
+            "node": "Confirmar a Meta Requiere producto",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Register Analytics - message_sent - Requiere producto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Requiere producto?": {
+      "main": [
+        [
+          {
+            "node": "Enviar mensaje Requiere Producto",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Preparar consulta - Necesita producto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar consulta del producto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar estado - awaiting_product1": {
+      "main": [
+        [
+          {
+            "node": "Register Analytics - change_state - awaiting.product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar consulta - Necesita producto": {
+      "main": [
+        [
+          {
+            "node": "Guardar estado - awaiting_product1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a3f8a908-6dd9-45a8-80c3-599e4d497882",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "289dcd1846d0c62cd739f7c637a24a6092eab74849a3d75369e49cfe62883b7e"
+  },
+  "id": "MMQc2OV6GHvaMSW2",
+  "tags": []
+}
