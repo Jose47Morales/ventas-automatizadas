@@ -3,10 +3,12 @@ const productsService = require("../services/products.service.cjs");
 module.exports = {
     getProducts: async (req, res) => {
         try {
+            console.log("GET /products hit");
             const products = await productsService.getAllProducts();
             res.json(products);
         } catch (error) {
-            res.status(500).json({ success: false, error: error.message });
+            console.error("ERROR getProducts:", error);
+            res.status(500).json({ success: false, error: error.message || "UNKNOWN_ERROR" });
         }
     },
 
