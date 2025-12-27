@@ -1,14 +1,23 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm ci --omit=dev --legacy-peer-deps
+
+COPY . .
+
 FROM node:20-alpine
 
 ENV NODE_ENV=production
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app .
 
-RUN npm ci --omit=dev
-
-COPY . .
+USER node
 
 EXPOSE 4000
 
