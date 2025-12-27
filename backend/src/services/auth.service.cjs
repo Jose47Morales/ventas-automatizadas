@@ -85,9 +85,14 @@ exports.refreshToken = async (ctx) => {
 
     await sessionService.validateSessionContext(stored, ctx);
 
+    const { rows } = await pool.query(
+        'SELECT roleSlug FROM "user" WHERE id = $1',
+        [payload.sub]
+    );
+
     const accessToken = generateAccessToken({ 
         id: payload.sub, 
-        roleSlug: stored.role,
+        roleSlug: rows[0].roleslug,
     });
 
     const newRefreshToken = generateRefreshToken(payload.sub);

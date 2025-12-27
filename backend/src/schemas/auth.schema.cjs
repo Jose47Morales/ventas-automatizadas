@@ -1,10 +1,11 @@
 module.exports.registerSchema = {
     type: "object",
-    required: ["name", "email", "password"],
+    required: ["email", "password"],
     properties: {
-        name: { type: "string", minLength: 2 },
         email: { type: "string", format: "email" },
-        password: { type: "string", minLength: 6 }
+        password: { type: "string", minLength: 6 },
+        firstName: { type: "string", minLength: 2 },
+        lastName: { type: "string", minLength: 2 }
     },
     additionalProperties: false
 };
