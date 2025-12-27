@@ -3,7 +3,7 @@ const router = express.Router();
 const productsCtrl = require('../controllers/products.controller.cjs');
 
 // Middlewares
-const validateId = require("../validators/validateId.cjs");
+const validateId = require("../validators/validateUuid.cjs");
 
 router.get('/', productsCtrl.getProducts);
 router.get('/search', productsCtrl.searchProducts);
