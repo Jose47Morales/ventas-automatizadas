@@ -7,9 +7,9 @@ const ACCESS_EXPIRE = '15m';
 const REFRESH_EXPIRE_DAYS = 7;
 
 const generateAccessToken = (user) =>
-    jwt.sign( 
-        { sub: user.id, role: user.roleSlug }, 
-        process.env.JWT_SECRET, 
+    jwt.sign(
+        { sub: user.id, role: user.roleslug || user.roleSlug },
+        process.env.JWT_SECRET,
         { expiresIn: ACCESS_EXPIRE }
     );
 
@@ -31,11 +31,11 @@ exports.register = async ({ email, password, firstName, lastName }) => {
 
     const { rows } = await pool.query(
         `
-        INSERT INTO "user"(email, password, firstName, lastName, roleSlug)
+        INSERT INTO "user"(email, password, firstname, lastname, roleslug)
         VALUES ($1, $2, $3, $4, 'global:member')
-        RETURNING id, email, firstName, lastName, roleSlug
+        RETURNING id, email, firstname, lastname, roleslug
         `,
-        [email, hashed, firstName || null, lastName || null]
+        [email, hashed, firstName, lastName]
     );
 
     return rows[0];
@@ -86,7 +86,7 @@ exports.refreshToken = async (ctx) => {
     await sessionService.validateSessionContext(stored, ctx);
 
     const { rows } = await pool.query(
-        'SELECT roleSlug FROM "user" WHERE id = $1',
+        'SELECT roleslug FROM "user" WHERE id = $1',
         [payload.sub]
     );
 

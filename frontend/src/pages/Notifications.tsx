@@ -13,12 +13,9 @@ import {
   Center,
   Button,
   useToast,
-  Divider,
-  Avatar,
 } from '@chakra-ui/react';
 import {
   FiBell,
-  FiPackage,
   FiAlertTriangle,
   FiShoppingCart,
   FiDollarSign,

@@ -45,7 +45,7 @@ export default function BarChart({
       <Box position="relative" h={`${height}px`} mt={4}>
         {/* Líneas de cuadrícula horizontales y valores del eje Y */}
         <Box position="absolute" top={0} left={0} right={0} bottom={6} pl={12}>
-          {gridLines.reverse().map((g, i) => (
+          {gridLines.reverse().map((_, i) => (
             <Box
               key={i}
               position="absolute"

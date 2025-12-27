@@ -14,7 +14,6 @@ import {
   Badge,
   Icon,
   HStack,
-  Tooltip,
   Spinner,
   Center,
   useToast,
@@ -23,7 +22,6 @@ import {
   FiDollarSign,
   FiShoppingCart,
   FiTrendingUp,
-  FiPercent,
   FiArrowUp,
   FiArrowDown,
   FiMessageCircle,
@@ -109,7 +107,7 @@ function Analytics() {
   // Estados para datos de la API
   const [metrics, setMetrics] = useState<APIMetric[]>([]);
   const [orders, setOrders] = useState<APIOrder[]>([]);
-  const [products, setProducts] = useState<APIProduct[]>([]);
+  const [, setProducts] = useState<APIProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const toast = useToast();

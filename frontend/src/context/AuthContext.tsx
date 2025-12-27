@@ -5,37 +5,61 @@ import { authAPI } from '../services/api';
 // Tipos
 interface User {
   id: number;
-  name: string;
   email: string;
-  role: string;
+  firstName?: string;
+  lastName?: string;
+  roleSlug: string;
+  name?: string;
+  role?: string;
 }
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
+  accessToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (data: { email: string; password: string; firstName: string; lastName: string }) => Promise<void>;
   logout: () => void;
 }
 
 // Crear el contexto
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// ⚠️ MODO DESARROLLO: Bypass de autenticación temporal
+// TODO: Remover cuando José despliegue el backend con auth funcionando
+const DEV_BYPASS_AUTH = false;
+
+const DEV_USER: User = {
+  id: 1,
+  email: 'dev@example.com',
+  firstName: 'Usuario',
+  lastName: 'Desarrollo',
+  roleSlug: 'global:admin',
+  name: 'Usuario Desarrollo',
+  role: 'admin',
+};
+
 // Provider del contexto
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(DEV_BYPASS_AUTH ? DEV_USER : null);
+  const [accessToken, setAccessToken] = useState<string | null>(DEV_BYPASS_AUTH ? 'dev-token' : null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Al cargar la app, verificar si hay un token guardado
+  // Al cargar la app, verificar si hay tokens guardados
   useEffect(() => {
+    // Si está en modo bypass, no verificar auth
+    if (DEV_BYPASS_AUTH) {
+      return;
+    }
+
     const checkAuth = async () => {
-      const savedToken = localStorage.getItem('token');
+      const savedAccessToken = localStorage.getItem('accessToken');
+      const savedRefreshToken = localStorage.getItem('refreshToken');
       const savedUser = localStorage.getItem('user');
 
-      if (savedToken && savedUser) {
-        setToken(savedToken);
+      if (savedAccessToken && savedRefreshToken && savedUser) {
+        setAccessToken(savedAccessToken);
         setUser(JSON.parse(savedUser));
       }
 
@@ -48,43 +72,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Función de login
   const login = async (email: string, password: string) => {
     try {
-      // Llamar al backend
-      const response: any = await authAPI.login(email, password);
+      // Llamar al backend - retorna { accessToken, refreshToken }
+      const response = await authAPI.login(email, password);
 
-      // Guardar token y usuario
-      // Manejar diferentes estructuras de respuesta
-      const newToken = response.token || response.data?.token || '';
-      const newUser = response.user || response.data?.user || null;
+      const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response;
 
-      if (!newToken || !newUser) {
+      if (!newAccessToken || !newRefreshToken) {
         throw new Error('Respuesta inválida del servidor');
       }
 
-      localStorage.setItem('token', newToken);
-      localStorage.setItem('user', JSON.stringify(newUser));
+      // Decodificar el JWT para obtener info del usuario
+      const payload = JSON.parse(atob(newAccessToken.split('.')[1]));
 
-      setToken(newToken);
-      setUser(newUser);
+      const userData: User = {
+        id: payload.sub,
+        email: email,
+        roleSlug: payload.role || 'global:member',
+        name: email.split('@')[0],
+        role: payload.role || 'global:member',
+      };
+
+      // Guardar tokens y usuario
+      localStorage.setItem('accessToken', newAccessToken);
+      localStorage.setItem('refreshToken', newRefreshToken);
+      localStorage.setItem('user', JSON.stringify(userData));
+
+      setAccessToken(newAccessToken);
+      setUser(userData);
     } catch (error) {
       console.error('Error en login:', error);
       throw error;
     }
   };
 
+  // Función de registro
+  const register = async (data: { email: string; password: string; firstName: string; lastName: string }) => {
+    try {
+      await authAPI.register(data);
+
+      // Después del registro, hacer login automático
+      await login(data.email, data.password);
+    } catch (error) {
+      console.error('Error en registro:', error);
+      throw error;
+    }
+  };
+
   // Función de logout
   const logout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
-    setToken(null);
+    setAccessToken(null);
     setUser(null);
   };
 
   const value: AuthContextType = {
     user,
-    token,
-    isAuthenticated: !!token,
+    accessToken,
+    isAuthenticated: !!accessToken,
     isLoading,
     login,
+    register,
     logout,
   };
 

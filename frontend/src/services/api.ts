@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // URL base del backend (cambiar según tu configuración)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://ventas-backend-gyyx.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backend-empty-frog-4217.fly.dev';
 
 // Crear instancia de axios con configuración base
 const api = axios.create({
@@ -11,17 +11,35 @@ const api = axios.create({
   },
 });
 
+// Variable para evitar múltiples refresh simultáneos
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (token: string) => void;
+  reject: (error: any) => void;
+}> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token!);
+    }
+  });
+  failedQueue = [];
+};
+
 // Interceptor para agregar el token a todas las peticiones
 api.interceptors.request.use(
   (config) => {
-    // Obtener el token del localStorage
-    const token = localStorage.getItem('token');
-    
+    // Obtener el accessToken del localStorage
+    const accessToken = localStorage.getItem('accessToken');
+
     // Si hay token, agregarlo al header Authorization
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
     }
-    
+
     return config;
   },
   (error) => {
@@ -29,20 +47,74 @@ api.interceptors.request.use(
   }
 );
 
-// Interceptor para manejar errores de respuesta
+// Interceptor para manejar errores de respuesta y refresh automático
 api.interceptors.response.use(
   (response) => {
-    // Si la respuesta es exitosa, simplemente retornarla
     return response;
   },
-  (error) => {
-    // Si el token expiró (401), redirigir al login
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Si el token expiró (401) y no es una petición de refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      // Si ya estamos haciendo refresh, encolar la petición
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      const refreshToken = localStorage.getItem('refreshToken');
+
+      if (!refreshToken) {
+        // No hay refresh token, limpiar y redirigir
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return Promise.reject(error);
+      }
+
+      try {
+        // Intentar renovar el token
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {
+          refreshToken,
+        });
+
+        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
+
+        localStorage.setItem('accessToken', newAccessToken);
+        localStorage.setItem('refreshToken', newRefreshToken);
+
+        api.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+
+        processQueue(null, newAccessToken);
+
+        return api(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+
+        // Refresh falló, limpiar y redirigir
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -52,52 +124,51 @@ api.interceptors.response.use(
 // ============================================
 
 export const authAPI = {
-  // Login
-  // NOTA: El backend de José NO tiene endpoint de auth todavía
-  // Por ahora usamos un login simulado
-  login: async (email: string, _password: string) => {
-    // TODO: Preguntar a José cuál es el endpoint correcto de login
-    // Opciones posibles: /auth/login, /login, /api/login
-    
-    // POR AHORA: Simulamos login exitoso
-    // Esto es TEMPORAL hasta que José confirme el endpoint
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          token: 'temporary-token-12345',
-          user: {
-            id: 1,
-            name: 'Usuario Admin',
-            email: email,
-            role: 'admin'
-          }
-        });
-      }, 1000);
+  // Login - Endpoint real de José
+  login: async (email: string, password: string) => {
+    const response = await api.post('/auth/login', { email, password });
+    return response.data;
+  },
+
+  // Register - Crear nuevo usuario
+  // Backend espera: { email, password, firstName?, lastName? }
+  register: async (data: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+  }) => {
+    const response = await api.post('/auth/register', {
+      email: data.email,
+      password: data.password,
+      firstName: data.firstName,
+      lastName: data.lastName,
     });
-    
-    // CUANDO JOSÉ CONFIRME EL ENDPOINT, descomentar esto:
-    // const response = await api.post('/auth/login', { email, password });
-    // return response.data;
+    return response.data;
   },
-  
-  // Logout
+
+  // Refresh Token - Renovar tokens
+  refreshToken: async (refreshToken: string) => {
+    const response = await api.post('/auth/refresh-token', { refreshToken });
+    return response.data;
+  },
+
+  // Logout - Limpiar sesión local
   logout: async () => {
-    // Por ahora solo limpiamos localStorage
+    // Limpiar tokens del localStorage
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
     return { success: true };
-    // const response = await api.post('/auth/logout');
-    // return response.data;
   },
-  
-  // Obtener usuario actual
+
+  // Obtener usuario actual desde localStorage
   me: async () => {
-    // Por ahora retornamos el usuario guardado
     const userStr = localStorage.getItem('user');
     if (userStr) {
       return JSON.parse(userStr);
     }
     throw new Error('No user found');
-    // const response = await api.get('/auth/me');
-    // return response.data;
   },
 };
 
@@ -182,7 +253,7 @@ export const productsAPI = {
       vender_solo_existencia: false,
     };
     console.log('Enviando producto:', fullProductData);
-    const response = await api.post('/products', fullProductData);
+    const response = await api.post('/api/products', fullProductData);
     return response.data;
   },
 
@@ -301,13 +372,13 @@ export const paymentsAPI = {
     const response = await api.get('/payments', { params });
     return response.data;
   },
-  
+
   // Obtener un pago por ID
   getById: async (id: number) => {
     const response = await api.get(`/payments/${id}`);
     return response.data;
   },
-  
+
   // Confirmar un pago
   confirm: async (id: number) => {
     const response = await api.post(`/payments/${id}/confirm`);
