@@ -20,7 +20,7 @@ const generateRefreshToken = (userId) =>
         { expiresIn: `${REFRESH_EXPIRE_DAYS}d` }
     );
 
-exports.register = async ({ email, password, firstName, lastName }) => {
+exports.register = async ({ email, password, firstname, lastname }) => {
     const exists = await pool.query(
         'SELECT id FROM "user" WHERE email = $1',
         [email]
@@ -31,11 +31,11 @@ exports.register = async ({ email, password, firstName, lastName }) => {
 
     const { rows } = await pool.query(
         `
-        INSERT INTO "user"(email, password, firstName, lastName, roleSlug)
+        INSERT INTO "user"(email, password, firstname, lastname, roleSlug)
         VALUES ($1, $2, $3, $4, 'global:member')
         RETURNING id, email, firstName, lastName, roleSlug
         `,
-        [email, hashed, firstName || null, lastName || null]
+        [email, hashed, firstname || null, lastname || null]
     );
 
     return rows[0];
