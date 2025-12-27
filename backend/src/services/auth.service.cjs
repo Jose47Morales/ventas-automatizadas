@@ -20,7 +20,7 @@ const generateRefreshToken = (userId) =>
         { expiresIn: `${REFRESH_EXPIRE_DAYS}d` }
     );
 
-exports.register = async ({ email, password, firstname, lastname }) => {
+exports.register = async ({ email, password, firstName, lastName }) => {
     const exists = await pool.query(
         'SELECT id FROM "user" WHERE email = $1',
         [email]
@@ -31,11 +31,11 @@ exports.register = async ({ email, password, firstname, lastname }) => {
 
     const { rows } = await pool.query(
         `
-        INSERT INTO "user"(email, password, firstname, lastname, roleslug)
+        INSERT INTO "user"(email, password, "firstName", "lastName", "roleSlug")
         VALUES ($1, $2, $3, $4, 'global:member')
-        RETURNING id, email, firstname, lastname, roleslug
+        RETURNING id, email, "firstName", "lastName", "roleSlug"
         `,
-        [email, hashed, firstname || null, lastname || null]
+        [email, hashed, firstName || null, lastName || null]
     );
 
     return rows[0];
@@ -86,7 +86,7 @@ exports.refreshToken = async (ctx) => {
     await sessionService.validateSessionContext(stored, ctx);
 
     const { rows } = await pool.query(
-        'SELECT roleslug FROM "user" WHERE id = $1',
+        'SELECT "roleSlug" FROM "user" WHERE id = $1',
         [payload.sub]
     );
 
