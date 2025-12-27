@@ -18,7 +18,7 @@ module.exports = {
                 ) AS items
             FROM orders o
             LEFT JOIN order_items oi ON oi.order_id = o.id
-            LEFT JOIN products p ON p.id_producto = oi.product_id
+            LEFT JOIN products p ON p.id = oi.product_id
             GROUP BY o.id
             ORDER BY o.id DESC;
         `;
@@ -41,7 +41,7 @@ module.exports = {
                 ) AS items
             FROM orders o
             LEFT JOIN order_items oi ON oi.order_id = o.id
-            LEFT JOIN products p ON p.id_producto = oi.product_id
+            LEFT JOIN products p ON p.id = oi.product_id
             WHERE o.id = $1
             GROUP BY o.id;
         `;
@@ -71,7 +71,7 @@ module.exports = {
                 const productRes = await client.query(
                     `SELECT precioventa_con_impuesto
                     FROM products
-                    WHERE id_producto = $1`,
+                    WHERE id = $1`,
                     [item.product_id]
                 );
 
@@ -154,7 +154,7 @@ module.exports = {
             const productRes = await client.query(
                 `SELECT precioventa_con_impuesto
                 FROM products
-                WHERE id_producto = $1`,
+                WHERE id = $1`,
                 [product_id]
             );
 

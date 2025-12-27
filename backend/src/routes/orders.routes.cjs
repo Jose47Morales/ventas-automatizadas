@@ -6,7 +6,7 @@ const ordersCtrl = require('../controllers/orders.controller.cjs');
 const validateSchema = require("../validators/validateSchema.cjs");
 const { createOrderSchema, updateOrderSchema } = require("../validators/order.schema.cjs");
 const { addOrderItemSchema } = require("../validators/orderItem.schema.cjs");
-const validateId = require("../validators/validateId.cjs");
+const validateId = require("../validators/validateUuid.cjs");
 
 
 router.get('/', ordersCtrl.getOrders);
