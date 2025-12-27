@@ -131,7 +131,7 @@ export const authAPI = {
   },
 
   // Register - Crear nuevo usuario
-  // Backend espera: { email, password, firstName?, lastName? }
+  // Backend espera: { email, password, firstname?, lastname? }
   register: async (data: {
     email: string;
     password: string;
@@ -141,8 +141,8 @@ export const authAPI = {
     const response = await api.post('/auth/register', {
       email: data.email,
       password: data.password,
-      firstName: data.firstName,
-      lastName: data.lastName,
+      firstname: data.firstName,
+      lastname: data.lastName,
     });
     return response.data;
   },

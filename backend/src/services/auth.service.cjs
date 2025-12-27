@@ -15,12 +15,12 @@ const generateAccessToken = (user) =>
 
 const generateRefreshToken = (userId) =>
     jwt.sign(
-        { sub: userId }, 
-        process.env.REFRESH_TOKEN_SECRET, 
+        { sub: userId },
+        process.env.REFRESH_TOKEN_SECRET,
         { expiresIn: `${REFRESH_EXPIRE_DAYS}d` }
     );
 
-exports.register = async ({ email, password, firstName, lastName }) => {
+exports.register = async ({ email, password, firstname, lastname }) => {
     const exists = await pool.query(
         'SELECT id FROM "user" WHERE email = $1',
         [email]
@@ -35,7 +35,7 @@ exports.register = async ({ email, password, firstName, lastName }) => {
         VALUES ($1, $2, $3, $4, 'global:member')
         RETURNING id, email, firstname, lastname, roleslug
         `,
-        [email, hashed, firstName, lastName]
+        [email, hashed, firstname || null, lastname || null]
     );
 
     return rows[0];
@@ -90,8 +90,8 @@ exports.refreshToken = async (ctx) => {
         [payload.sub]
     );
 
-    const accessToken = generateAccessToken({ 
-        id: payload.sub, 
+    const accessToken = generateAccessToken({
+        id: payload.sub,
         roleSlug: rows[0].roleslug,
     });
 
