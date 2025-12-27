@@ -13,7 +13,7 @@ module.exports = {
                         'product_name', p.nombre,
                         'quantity', oi.quantity,
                         'unit_price', oi.unit_price,
-                        'total', oi.total
+                        'total', oi.subtotal
                     )
                 ) AS items
             FROM orders o
@@ -36,7 +36,7 @@ module.exports = {
                         'product_name', p.nombre,
                         'quantity', oi.quantity,
                         'unit_price', oi.unit_price,
-                        'total', oi.total        
+                        'total', oi.subtotal        
                     )
                 ) AS items
             FROM orders o
