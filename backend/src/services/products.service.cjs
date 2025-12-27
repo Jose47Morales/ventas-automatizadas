@@ -2,12 +2,12 @@ const { pool } = require("../database/db.cjs");
 
 module.exports = {
     getAllProducts: async () => {
-        const result = await pool.query('SELECT * FROM products ORDER BY id_producto DESC');
+        const result = await pool.query('SELECT * FROM products ORDER BY id DESC');
         return result.rows;
     },
 
     getProductById: async (id) => {
-        const result = await pool.query('SELECT * FROM products WHERE id_producto = $1', [id]);
+        const result = await pool.query('SELECT * FROM products WHERE id = $1', [id]);
         return result.rows[0];
     },
 
@@ -45,7 +45,7 @@ module.exports = {
 
         const query = `
             SELECT 
-                id_producto, 
+                id, 
                 nombre, 
                 precioventa_con_impuesto AS precio, 
                 existencias, 
@@ -100,7 +100,7 @@ module.exports = {
     },
 
     updateProduct: async (data) => {
-        const { id_producto, nombre, referencia, codigo_barras, invima, cum, codigo_producto_dian,
+        const { id, nombre, referencia, codigo_barras, invima, cum, codigo_producto_dian,
             existencias, impuesto, precioventa_con_impuesto, precio_venta_base,
             precio_venta_minimo, descuento_maximo_ps, precio_compra, precio_compraipm,
             total_impoconsumo, total_estampilla, icui, ibua, costo, stock_minimo,
@@ -119,7 +119,7 @@ module.exports = {
                 marca = $26, codigo_cuenta = $27, precio1 = $28, precio2 = $29, precio3 = $30, precio4 = $31, ubicacion = $32, proveedor = $33,
                 nit_proveedor = $34, url_imagen = $35, nota = $36, tipo_producto = $37, imagenes = $38, videos = $39, realizar_pedido_solo_existencia = $40,
                 vender_solo_existencia = $41
-            WHERE id_producto = $42 RETURNING *`,
+            WHERE id = $42 RETURNING *`,
             [nombre, referencia, codigo_barras, invima, cum, codigo_producto_dian,
             existencias, impuesto, precioventa_con_impuesto, precio_venta_base,
             precio_venta_minimo, descuento_maximo_ps, precio_compra, precio_compraipm,
@@ -127,13 +127,13 @@ module.exports = {
             es_ingrediente, manejo_bascula, utilidad, mostrar_tienda, categoria,
             marca, codigo_cuenta, precio1, precio2, precio3, precio4, ubicacion, proveedor,
             nit_proveedor, url_imagen, nota, tipo_producto, imagenes, videos, realizar_pedido_solo_existencia,
-            vender_solo_existencia, id_producto]
+            vender_solo_existencia, id]
         );
         return update.rows[0];
     },
 
     deleteProduct: async (id) => {
-        const result = await pool.query('DELETE FROM products WHERE id_producto = $1 RETURNING *', [id]);
+        const result = await pool.query('DELETE FROM products WHERE id = $1 RETURNING *', [id]);
         return result.rows[0];
     }
 };
