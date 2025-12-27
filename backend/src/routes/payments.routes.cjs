@@ -3,7 +3,7 @@ const router = express.Router();
 const paymentsCtrl = require('../controllers/payments.controller.cjs');
 
 // Middlewares
-const validateId = require("../validators/validateId.cjs");
+const validateId = require("../validators/validateUuid.cjs");
 
 router.get('/', paymentsCtrl.getPayments);
 router.get('/:id', validateId, paymentsCtrl.getPayment);
