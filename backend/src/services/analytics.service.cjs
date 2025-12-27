@@ -15,7 +15,7 @@ module.exports = {
   // Obtener todos los registros
   getAllMetrics: async () => {
     const result = await pool.query(
-      `SELECT * FROM analytics ORDER BY date DESC`
+      `SELECT * FROM analytics ORDER BY created_at DESC`
     );
     return result.rows;
   },

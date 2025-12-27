@@ -155,6 +155,10 @@ app.post('/logs', async (req, res) => {
     }
 });
 
+// Endpoint de verificación Whatsapp
+const webhookRouter = require('./src/routes/webhooks.routes.cjs');
+app.use('/webhooks', webhookRouter);
+
 // Iniciar servidor
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor corriendo en puerto ${PORT}`);
