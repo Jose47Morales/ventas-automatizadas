@@ -23,7 +23,7 @@ module.exports = {
   // Obtener métricas por tipo
   getMetricsByType: async (metric_type) => {
     const result = await pool.query(
-      `SELECT * FROM analytics WHERE metric_type = $1 ORDER BY date DESC`,
+      `SELECT * FROM analytics WHERE metric_type = $1 ORDER BY created_at DESC`,
       [metric_type]
     );
     return result.rows;
