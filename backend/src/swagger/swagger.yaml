@@ -2,11 +2,11 @@ openapi: 3.0.3
 info:
   title: Ventas Automatizadas API
   version: 1.0.0
-  description: API REST para gestión de productos, órdenes, pagos y analíticas.
+  description: API Backend.
 
 servers:
-  - url: https://ventas-backend-gyyx.onrender.com/api
-    description: Servidor de producción
+  - url: /
+    description: Dynamic server
 
 paths:
   ############################################################
