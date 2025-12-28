@@ -1,40 +1,68 @@
 openapi: 3.0.3
+
 info:
   title: Ventas Automatizadas API
   version: 1.0.0
-  description: API Backend.
+  description: API Backend para ventas automatizadas.
 
 servers:
   - url: /api
-    description: Dynamic server
+    description: Dynamic server (Fly / Reserve Proxy)
+
+tags:
+  - name: Products
+  - name: Orders
+  - name: Payments
+  - name: Analytics
+  - name: Auth
 
 paths:
+
   ############################################################
   # PRODUCTS
   ############################################################
   /products:
     get:
-      summary: Obtener todos los productos
+      summary: Obtener productos (paginado)
       tags: [Products]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
       responses:
         200:
-          description: Lista de productos
+          description: Lista paginada de productos
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Product'
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
 
     post:
-      summary: Crear un nuevo producto
+      summary: Crear producto
       tags: [Products]
+      security: 
+        - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProductInput'
+              $$ref: '#/components/schemas/ProductInput'
       responses:
         201:
           description: Producto creado
@@ -45,10 +73,10 @@ paths:
 
   /products/{id}:
     get:
-      summary: Obtener un producto por ID
+      summary: Obtener producto por ID
       tags: [Products]
       parameters:
-        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/UUID'
       responses:
         200:
           description: Producto encontrado
@@ -57,13 +85,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/Product'
         404:
-          description: Producto no encontrado
+          description: No encontrado
 
     put:
-      summary: Actualizar un producto
+      summary: Actualizar producto
       tags: [Products]
+      security:
+        - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/UUID'
       requestBody:
         required: true
         content:
@@ -73,27 +103,27 @@ paths:
       responses:
         200:
           description: Producto actualizado
-        404:
-          description: Producto no encontrado
 
     delete:
       summary: Eliminar producto
       tags: [Products]
+      security:
+        - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/UUID'
       responses:
         200:
           description: Producto eliminado
-        404:
-          description: Producto no encontrado
 
   ############################################################
   # ORDERS
   ############################################################
   /orders:
     get:
-      summary: Obtener todas las órdenes
+      summary: Obtener órdenes
       tags: [Orders]
+      security:
+        - BearerAuth: []
       responses:
         200:
           description: Lista de órdenes
@@ -105,9 +135,10 @@ paths:
                   $ref: '#/components/schemas/Order'
 
     post:
-      summary: Crear una orden
+      summary: Crear orden
       tags: [Orders]
       requestBody:
+        required: true
         content:
           application/json:
             schema:
@@ -115,75 +146,28 @@ paths:
       responses:
         201:
           description: Orden creada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Order'
 
   /orders/{id}:
     get:
-      summary: Obtener una orden por ID
+      summary: Obtener orden por ID
       tags: [Orders]
+      security:
+        - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/UUID'
       responses:
         200:
           description: Orden encontrada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Order'
-        404:
-          description: No encontrada
-
-    put:
-      summary: Actualizar una orden
-      tags: [Orders]
-      parameters:
-        - $ref: '#/components/parameters/OrderId'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/OrderInput'
-      responses:
-        200:
-          description: Orden actualizada
-        404:
-          description: No encontrada
-
-    delete:
-      summary: Eliminar una orden
-      tags: [Orders]
-      parameters:
-        - $ref: '#/components/parameters/OrderId'
-      responses:
-        200:
-          description: Orden eliminada
-        404:
-          description: No encontrada
 
   ############################################################
   # PAYMENTS
   ############################################################
   /payments:
-    get:
-      summary: Obtener todos los pagos
-      tags: [Payments]
-      responses:
-        200:
-          description: Lista de pagos
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Payment'
-
     post:
-      summary: Crear un pago
+      summary: Registrar pago
       tags: [Payments]
       requestBody:
+        required: true
         content:
           application/json:
             schema:
@@ -191,88 +175,10 @@ paths:
       responses:
         201:
           description: Pago registrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Payment'
-
-  /payments/{id}:
-    get:
-      summary: Obtener un pago por ID
-      tags: [Payments]
-      parameters:
-        - $ref: '#/components/parameters/PaymentId'
-      responses:
-        200:
-          description: Pago encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Payment'
-        404:
-          description: No encontrado
-
-    put:
-      summary: Actualizar un pago
-      tags: [Payments]
-      parameters:
-        - $ref: '#/components/parameters/PaymentId'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PaymentInput'
-      responses:
-        200:
-          description: Pago actualizado
-        404:
-          description: No encontrado
-
-    delete:
-      summary: Eliminar un pago
-      tags: [Payments]
-      parameters:
-        - $ref: '#/components/parameters/PaymentId'
-      responses:
-        200:
-          description: Pago eliminado
-        404:
-          description: No encontrado
 
   ############################################################
   # ANALYTICS
   ############################################################
-  /analytics:
-    get:
-      summary: Obtener todas las métricas
-      tags: [Analytics]
-      responses:
-        200:
-          description: Lista de métricas
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Metric'
-
-    post:
-      summary: Crear una métrica
-      tags: [Analytics]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MetricInput'
-      responses:
-        201:
-          description: Métrica creada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Metric'
-
   /analytics/{metric_type}:
     get:
       summary: Obtener métricas por tipo
@@ -283,10 +189,9 @@ paths:
           required: true
           schema:
             type: string
-          example: message_received
       responses:
         200:
-          description: Lista filtrada de métricas
+          description: Métricas filtradas
           content:
             application/json':
               schema:
@@ -298,37 +203,31 @@ paths:
 # COMPONENTS
 ############################################################
 components:
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   parameters:
-    ProductId:
+    UUID:
       name: id
       in: path
       required: true
       schema:
-        type: uuid
-
-    OrderId:
-      name: id
-      in: path
-      required: true
-      schema:
-        type: uuid
-
-    PaymentId:
-      name: id
-      in: path
-      required: true
-      schema:
-        type: uuid
-
+        type: string
+        format: uuid
+  
   schemas:
+
     Product:
       type: object
       properties:
         id:
-          type: uuid
-        nombre:
           type: string
-        descripcion:
+          format: uuid
+        nombre:
           type: string
         precio:
           type: number
@@ -339,9 +238,7 @@ components:
       type: object
       required: [nombre, precio, stock]
       properties:
-        nombre:
-          type: string
-        descripcion:
+        nombre: 
           type: string
         precio:
           type: number
@@ -352,66 +249,34 @@ components:
       type: object
       properties:
         id:
-          type: uuid
-        client_name:
           type: string
-        client_phone:
-          type: string
-        product_id:
-          type: integer
-        quantity:
-          type: integer
+          format: uuid
         total:
           type: number
-        payment_status:
-          type: string
-        date:
-          type: string
-          format: date-time
-
-    OrderInput:
-      type: object
-      required: [client_name, client_phone, product_id, quantity]
-      properties:
-        client_name:
-          type: string
-        client_phone:
-          type: string
-        product_id:
-          type: integer
-        quantity:
-          type: integer
-        total:
-          type: number
-        payment_status:
-          type: string
-
-    Payment:
-      type: object
-      properties:
-        id:
-          type: uuid
-        order_id:
-          type: integer
-        gateway:
-          type: string
-        confirmation_code:
-          type: string
         status:
           type: string
         created_at:
           type: string
           format: date-time
 
+    OrderInput:
+      type: object
+      required: [product_id, quantity]
+      properties:
+        product_id:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+
     PaymentInput:
       type: object
-      required: [order_id, gateway, confirmation_code, status]
+      required: [order_id, gateway, status]
       properties:
         order_id:
-          type: uuid
-        gateway:
           type: string
-        confirmation_code:
+          format: uuid
+        gateway:
           type: string
         status:
           type: string
@@ -420,24 +285,12 @@ components:
       type: object
       properties:
         id:
-          type: uuid
+          type: string
+          format: uuid
         metric_type:
           type: string
         value:
           type: number
-        metadata:
-          type: object
         created_at:
           type: string
           format: date-time
-
-    MetricInput:
-      type: object
-      required: [metric_type, value]
-      properties:
-        metric_type:
-          type: string
-        value:
-          type: number
-        metadata:
-          type: object
