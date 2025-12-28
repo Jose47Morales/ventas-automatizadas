@@ -5,7 +5,7 @@ info:
   description: API Backend.
 
 servers:
-  - url: /
+  - url: /api
     description: Dynamic server
 
 paths:
