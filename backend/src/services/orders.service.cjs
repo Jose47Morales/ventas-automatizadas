@@ -91,8 +91,8 @@ module.exports = {
 
             await client.query(`
                 UPDATE orders
-                SET total = (
-                    SELECT COALESCE(SUM(total), 0)
+                SET total_amount = (
+                    SELECT COALESCE(SUM(subtotal), 0)
                     FROM order_items
                     WHERE order_id = $1
                 )
