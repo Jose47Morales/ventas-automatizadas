@@ -40,7 +40,7 @@ import { productsAPI } from '../services/api';
 
 // Interface para los productos de la API
 interface APIProduct {
-  id_producto: number;
+  id: string;
   nombre: string;
   categoria: string;
   marca: string;
@@ -54,7 +54,7 @@ interface APIProduct {
 
 // Interface para los productos del componente (vista en tabla)
 interface Product {
-  id: number;
+  id: string;
   name: string;
   category: string;
   brand: string;
@@ -67,7 +67,7 @@ interface Product {
 
 // Interface para el producto en edición (campos del backend)
 interface EditingProduct {
-  id: number;
+  id: string;
   nombre: string;
   referencia: string;
   codigo_barras: string;
@@ -138,7 +138,7 @@ function Products() {
         const data: APIProduct[] = await productsAPI.getAll();
         // Mapear los datos de la API al formato del componente
         const mappedProducts: Product[] = data.map((p) => ({
-          id: p.id_producto,
+          id: p.id,
           name: p.nombre,
           category: p.categoria || 'Sin categoría',
           brand: p.marca || 'Sin marca',
@@ -214,7 +214,7 @@ function Products() {
       // Cargar el producto completo desde la API
       const fullProduct = await productsAPI.getById(product.id);
       setEditingProduct({
-        id: fullProduct.id_producto,
+        id: fullProduct.id,
         nombre: fullProduct.nombre || '',
         referencia: fullProduct.referencia || '',
         codigo_barras: fullProduct.codigo_barras || '',
@@ -370,7 +370,7 @@ function Products() {
       // Recargar productos
       const data: APIProduct[] = await productsAPI.getAll();
       const mappedProducts: Product[] = data.map((p) => ({
-        id: p.id_producto,
+        id: p.id,
         name: p.nombre,
         category: p.categoria || 'Sin categoría',
         brand: p.marca || 'Sin marca',
@@ -445,7 +445,7 @@ function Products() {
       // Recargar productos para ver los cambios
       const data: APIProduct[] = await productsAPI.getAll();
       const mappedProducts: Product[] = data.map((p) => ({
-        id: p.id_producto,
+        id: p.id,
         name: p.nombre,
         category: p.categoria || 'Sin categoría',
         brand: p.marca || 'Sin marca',

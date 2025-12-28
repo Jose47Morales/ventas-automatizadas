@@ -131,7 +131,7 @@ export const authAPI = {
   },
 
   // Register - Crear nuevo usuario
-  // Backend espera: { email, password, firstname?, lastname? }
+  // Backend espera: { email, password, firstName?, lastName? }
   register: async (data: {
     email: string;
     password: string;
@@ -141,8 +141,8 @@ export const authAPI = {
     const response = await api.post('/auth/register', {
       email: data.email,
       password: data.password,
-      firstname: data.firstName,
-      lastname: data.lastName,
+      firstName: data.firstName,
+      lastName: data.lastName,
     });
     return response.data;
   },
@@ -179,13 +179,13 @@ export const authAPI = {
 export const productsAPI = {
   // Obtener todos los productos
   getAll: async (params?: { search?: string; category?: string }) => {
-    const response = await api.get('/products', { params });
+    const response = await api.get('/api/products', { params });
     return response.data;
   },
 
   // Obtener un producto por ID
-  getById: async (id: number) => {
-    const response = await api.get(`/products/${id}`);
+  getById: async (id: string | number) => {
+    const response = await api.get(`/api/products/${id}`);
     return response.data;
   },
 
@@ -258,7 +258,7 @@ export const productsAPI = {
   },
 
   // Actualizar un producto - campos según tabla products de PostgreSQL
-  update: async (id: number, productData: {
+  update: async (id: string | number, productData: {
     nombre: string;
     referencia?: string;
     codigo_barras?: string;
@@ -321,13 +321,13 @@ export const productsAPI = {
       vender_solo_existencia: false,
     };
     console.log('Actualizando producto:', fullProductData);
-    const response = await api.put(`/products/${id}`, fullProductData);
+    const response = await api.put(`/api/products/${id}`, fullProductData);
     return response.data;
   },
 
   // Eliminar un producto
-  delete: async (id: number) => {
-    const response = await api.delete(`/products/${id}`);
+  delete: async (id: string | number) => {
+    const response = await api.delete(`/api/products/${id}`);
     return response.data;
   },
 };
@@ -339,25 +339,25 @@ export const productsAPI = {
 export const ordersAPI = {
   // Obtener todos los pedidos
   getAll: async (params?: { status?: string }) => {
-    const response = await api.get('/orders', { params });
+    const response = await api.get('/api/orders', { params });
     return response.data;
   },
 
   // Obtener un pedido por ID
   getById: async (id: number) => {
-    const response = await api.get(`/orders/${id}`);
+    const response = await api.get(`/api/orders/${id}`);
     return response.data;
   },
 
   // Crear un pedido
   create: async (orderData: any) => {
-    const response = await api.post('/orders', orderData);
+    const response = await api.post('/api/orders', orderData);
     return response.data;
   },
 
   // Actualizar estado de un pedido
   updateStatus: async (id: number, status: string) => {
-    const response = await api.patch(`/orders/${id}/status`, { status });
+    const response = await api.patch(`/api/orders/${id}/status`, { status });
     return response.data;
   },
 };
@@ -369,19 +369,19 @@ export const ordersAPI = {
 export const paymentsAPI = {
   // Obtener todos los pagos
   getAll: async (params?: { status?: string }) => {
-    const response = await api.get('/payments', { params });
+    const response = await api.get('/api/payments', { params });
     return response.data;
   },
 
   // Obtener un pago por ID
   getById: async (id: number) => {
-    const response = await api.get(`/payments/${id}`);
+    const response = await api.get(`/api/payments/${id}`);
     return response.data;
   },
 
   // Confirmar un pago
   confirm: async (id: number) => {
-    const response = await api.post(`/payments/${id}/confirm`);
+    const response = await api.post(`/api/payments/${id}/confirm`);
     return response.data;
   },
 };
@@ -393,19 +393,19 @@ export const paymentsAPI = {
 export const analyticsAPI = {
   // Obtener todas las métricas
   getAll: async () => {
-    const response = await api.get('/analytics');
+    const response = await api.get('/api/analytics');
     return response.data;
   },
 
   // Obtener métricas por tipo
   getByType: async (metricType: string) => {
-    const response = await api.get(`/analytics/${metricType}`);
+    const response = await api.get(`/api/analytics/${metricType}`);
     return response.data;
   },
 
   // Crear una métrica
   create: async (data: { metric_type: string; value: number }) => {
-    const response = await api.post('/analytics', data);
+    const response = await api.post('/api/analytics', data);
     return response.data;
   },
 };
