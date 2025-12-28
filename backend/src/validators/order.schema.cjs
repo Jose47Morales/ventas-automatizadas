@@ -22,7 +22,7 @@ module.exports = {
                     type: "object",
                     required: ["product_id", "quantity"],
                     properties: {
-                        product_id: { type: "integer", minimum: 1 },
+                        product_id: { type: "string", format: "uuid" },
                         quantity: { type: "integer", minimum: 1 }
                     },
                     additionalProperties: false
@@ -41,7 +41,7 @@ module.exports = {
                 type: "string",
                 pattern: "^\\+?[1-9]\\d{7,14}$" 
             },
-            product_id: { type: "integer", minimum: 1 },
+            product_id: { type: "string", format: "uuid" },
             quantity: { type: "integer", minimum: 1 },
             payment_status: { type: "string", enum: ["pending", "paid", "failed"] },
         },

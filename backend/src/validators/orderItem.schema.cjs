@@ -3,8 +3,14 @@ module.exports = {
         type: 'object',
         required: ['product_id', 'quantity'],
         properties: {
-            product_id: { type: 'integer', minimum: 1 },
-            quantity: { type: 'integer', minimum: 1 }
+            product_id: { 
+                type: 'string', 
+                format: 'uuid' 
+            },
+            quantity: { 
+                type: 'integer', 
+                minimum: 1 
+            }
         },
         additionalProperties: false
     }
