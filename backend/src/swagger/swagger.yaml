@@ -304,28 +304,28 @@ components:
       in: path
       required: true
       schema:
-        type: integer
+        type: uuid
 
     OrderId:
       name: id
       in: path
       required: true
       schema:
-        type: integer
+        type: uuid
 
     PaymentId:
       name: id
       in: path
       required: true
       schema:
-        type: integer
+        type: uuid
 
   schemas:
     Product:
       type: object
       properties:
-        id_producto:
-          type: integer
+        id:
+          type: uuid
         nombre:
           type: string
         descripcion:
@@ -352,7 +352,7 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          type: uuid
         client_name:
           type: string
         client_phone:
@@ -390,7 +390,7 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          type: uuid
         order_id:
           type: integer
         gateway:
@@ -408,7 +408,7 @@ components:
       required: [order_id, gateway, confirmation_code, status]
       properties:
         order_id:
-          type: integer
+          type: uuid
         gateway:
           type: string
         confirmation_code:
@@ -420,7 +420,7 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          type: uuid
         metric_type:
           type: string
         value:
