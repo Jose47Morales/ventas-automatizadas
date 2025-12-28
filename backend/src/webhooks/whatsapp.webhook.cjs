@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+const axios = require('axios');
 
 exports.verifyWebhook = (req, res) => {
     const mode = req.query['hub.mode'];
@@ -19,36 +19,41 @@ exports.verifyWebhook = (req, res) => {
 
 exports.receiveMessage = async (req, res) => {
     try {
+        res.sendStatus(200);
+
         const entry = req.body.entry?.[0];
-        const changes = entry?.changes?.[0];
-        const value = changes?.value;
+        const change = entry?.changes?.[0];
+        const value = change?.value;
 
-        const message = value?.messages?.[0];
+        if (!value?.messages?.length) return;
 
-        if (!message) {
-            return res.sendStatus(200);
-        }
+        const message = value.messages[0];
+        const contact = value.contacts?.[0];
 
-        const from = message.from;
-        const type = message.type;
+        const payload = {
+            from: message.from,
+            message_id: message.id,
+            timestamp: message.timestamp,
+            type: message.type,
+            text: message.text?.body || null,
+            contact: {
+                name: contact?.profile?.name || null,
+                wa_id: contact?.wa_id || null
+            },
+            raw: value
+        };
 
-        let text = null;
+        await axios.post(
+            process.env.N8N_WHATSAPP_WEBHOOK_URL,
+            payload,
+            {
+                timeout: 5000,
+            }
+        );
 
-        if (type === 'text') {
-            text = message.text.body;
-        }
+        console.log('Mensaje enviado a n8n correctamente');
 
-        console.log('Mensaje recibido de WhatsApp');
-        console.log({
-            from,
-            type,
-            text,
-            raw: message
-        });
-
-        return res.sendStatus(200);
     } catch (error) {
-        console.error('Error procesando webhook WhatsApp: ', error);
-        return res.sendStatus(200);
+        console.error('Error enviando mensaje a n8n: ', error.message);
     }
 };
