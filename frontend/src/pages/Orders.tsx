@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import {
   Box,
   Flex,
-  Grid,
   Heading,
   Text,
   Table,
@@ -26,6 +25,9 @@ import {
   Center,
   Select,
   useToast,
+  useBreakpointValue,
+  SimpleGrid,
+  Stack,
 } from '@chakra-ui/react';
 import { ChevronDownIcon } from '@chakra-ui/icons';
 import {
@@ -91,21 +93,21 @@ interface StatCardProps {
 
 function StatCard({ title, value, subtitle, icon, iconBg }: StatCardProps) {
   return (
-    <Box bg="purple.50" p={6} borderRadius="lg" boxShadow="sm">
+    <Box bg="purple.50" p={{ base: 4, md: 6 }} borderRadius="lg" boxShadow="sm">
       <Flex justify="space-between" align="start">
-        <Box>
-          <Text fontSize="sm" color="black" mb={1}>
+        <Box flex={1} minW={0}>
+          <Text fontSize={{ base: 'xs', md: 'sm' }} color="black" mb={1}>
             {title}
           </Text>
-          <Text fontSize="3xl" fontWeight="bold" color="black" mb={1}>
+          <Text fontSize={{ base: 'xl', md: '3xl' }} fontWeight="bold" color="black" mb={1}>
             {value}
           </Text>
-          <Text fontSize="sm" color="black">
+          <Text fontSize={{ base: 'xs', md: 'sm' }} color="black">
             {subtitle}
           </Text>
         </Box>
-        <Box bg={iconBg} p={3} borderRadius="md">
-          <Icon as={icon} boxSize={6} color="white" />
+        <Box bg={iconBg} p={{ base: 2, md: 3 }} borderRadius="md" flexShrink={0} ml={2}>
+          <Icon as={icon} boxSize={{ base: 4, md: 6 }} color="white" />
         </Box>
       </Flex>
     </Box>
@@ -130,6 +132,10 @@ function Orders() {
 
   // Toast para notificaciones
   const toast = useToast();
+
+  // Responsive values
+  const isMobile = useBreakpointValue({ base: true, md: false });
+  const headingSize = useBreakpointValue({ base: 'md', md: 'lg' });
 
   // Función para mapear estado de pago de la API al español
   const mapPaymentStatus = (status: string): string => {
@@ -242,13 +248,13 @@ function Orders() {
     <Box>
       {/* Encabezado */}
       <Flex justify="space-between" align="center" mb={6}>
-        <Heading size="lg" color="gray.800">
+        <Heading size={headingSize} color="gray.800">
            Panel de Órdenes
         </Heading>
       </Flex>
 
       {/* Tarjetas de métricas */}
-      <Grid templateColumns="repeat(3, 1fr)" gap={6} mb={6}>
+      <SimpleGrid columns={{ base: 1, sm: 3 }} gap={{ base: 3, md: 6 }} mb={6}>
         <StatCard
           title="Total Pedidos"
           value={totalOrders.toString()}
@@ -270,12 +276,12 @@ function Orders() {
           icon={FiClock}
           iconBg="orange.500"
         />
-      </Grid>
+      </SimpleGrid>
 
       {/* Barra de filtros */}
-      <Box bg="purple.50" p={4} borderRadius="lg" boxShadow="sm" mb={6}>
-        <Flex justify="space-between" align="center">
-          <Text fontSize="sm" color="black" fontWeight="medium">
+      <Box bg="purple.50" p={{ base: 3, md: 4 }} borderRadius="lg" boxShadow="sm" mb={6}>
+        <Flex justify="space-between" align="center" wrap="wrap" gap={2}>
+          <Text fontSize={{ base: 'xs', md: 'sm' }} color="black" fontWeight="medium">
             Filtrar por estado:
           </Text>
           <Menu>
@@ -301,116 +307,171 @@ function Orders() {
         </Flex>
       </Box>
 
-      {/* Tabla de pedidos */}
-      <Box bg="purple.50" borderRadius="lg" boxShadow="sm" overflow="hidden">
-        <Box p={4} borderBottom="1px" borderColor="gray.200">
-          <Text fontSize="md" fontWeight="semibold" color="gray.800">
-            Listado de Pedidos - Mostrando {startIndex + 1}-{Math.min(endIndex, filteredOrders.length)} de {filteredOrders.length}
-          </Text>
-        </Box>
-
-        <Table variant="simple">
-          <Thead bg="gray.50">
-            <Tr>
-              <Th>ID</Th>
-              <Th>Cliente</Th>
-              <Th>Contacto</Th>
-              <Th>Productos</Th>
-              <Th>Cantidad</Th>
-              <Th>Total</Th>
-              <Th>Estado</Th>
-              <Th>Fecha</Th>
-              <Th>Acciones</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {paginatedOrders.length > 0 ? (
-              paginatedOrders.map((order) => (
-                <Tr key={order.id}>
-                  {/* ID */}
-                  <Td fontWeight="bold" color="blue.600">
-                    {order.id}
-                  </Td>
-
-                  {/* Cliente */}
-                  <Td fontWeight="medium" color="gray.700">
-                    {order.client}
-                  </Td>
-
-                  {/* Contacto */}
-                  <Td>
+      {/* Pedidos - Tabla en desktop, Tarjetas en móvil */}
+      {isMobile ? (
+        /* Vista de tarjetas para móvil */
+        <VStack spacing={3} align="stretch">
+          <Box bg="purple.50" p={3} borderRadius="lg">
+            <Text fontSize="sm" fontWeight="semibold" color="gray.800">
+              Mostrando {startIndex + 1}-{Math.min(endIndex, filteredOrders.length)} de {filteredOrders.length}
+            </Text>
+          </Box>
+          {paginatedOrders.length > 0 ? (
+            paginatedOrders.map((order) => (
+              <Box
+                key={order.id}
+                bg="white"
+                p={4}
+                borderRadius="lg"
+                boxShadow="sm"
+                borderLeft="4px"
+                borderColor={getStatusColor(order.status) + '.500'}
+              >
+                <Flex justify="space-between" align="start" mb={3}>
+                  <VStack align="start" spacing={1}>
                     <HStack spacing={2}>
-                      <Icon as={FiPhone} color="gray.400" boxSize={4} />
-                      <Text fontSize="sm" color="gray.600">
-                        {order.contact}
+                      <Text fontWeight="bold" color="blue.600" fontSize="sm">
+                        {order.id}
                       </Text>
+                      <Badge colorScheme={getStatusColor(order.status)} fontSize="xs">
+                        {order.status}
+                      </Badge>
                     </HStack>
-                  </Td>
-
-                  {/* Productos */}
-                  <Td maxW="250px">
-                    <Text fontSize="sm" color="gray.600" noOfLines={2}>
-                      {order.products}
+                    <Text fontWeight="medium" color="gray.700" fontSize="sm">
+                      {order.client}
                     </Text>
-                  </Td>
+                  </VStack>
+                  <IconButton
+                    aria-label="Ver detalles"
+                    icon={<FiEye />}
+                    size="sm"
+                    variant="ghost"
+                    colorScheme="blue"
+                    onClick={() => handleViewDetails(order)}
+                  />
+                </Flex>
 
-                  {/* Cantidad */}
-                  <Td color="gray.600">{order.quantity} uds</Td>
+                <SimpleGrid columns={2} spacing={2} mb={2}>
+                  <Box>
+                    <Text fontSize="xs" color="gray.500">Contacto</Text>
+                    <HStack spacing={1}>
+                      <Icon as={FiPhone} color="gray.400" boxSize={3} />
+                      <Text fontSize="xs" color="gray.600">{order.contact}</Text>
+                    </HStack>
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="gray.500">Fecha</Text>
+                    <Text fontSize="xs" color="gray.600">{order.date}</Text>
+                  </Box>
+                </SimpleGrid>
 
-                  {/* Total */}
-                  <Td fontWeight="semibold" color="gray.800">
-                    ${order.total.toLocaleString()}
-                  </Td>
+                <Text fontSize="xs" color="gray.500" noOfLines={1} mb={2}>
+                  {order.products}
+                </Text>
 
-                  {/* Estado */}
-                  <Td>
-                    <Badge
-                      colorScheme={getStatusColor(order.status)}
-                      fontSize="sm"
-                      px={3}
-                      py={1}
-                      borderRadius="full"
-                    >
-                      {order.status}
-                    </Badge>
-                  </Td>
+                <Flex justify="space-between" align="center">
+                  <Text fontSize="xs" color="gray.500">{order.quantity} uds</Text>
+                  <Text fontWeight="bold" color="gray.800">${order.total.toLocaleString()}</Text>
+                </Flex>
+              </Box>
+            ))
+          ) : (
+            <Box p={8} textAlign="center" bg="purple.50" borderRadius="lg">
+              <Icon as={FiShoppingCart} color="gray.300" boxSize={12} mb={4} />
+              <Text color="gray.500">No se encontraron pedidos</Text>
+              <Text color="gray.400" fontSize="sm" mt={2}>Intenta cambiar los filtros</Text>
+            </Box>
+          )}
+        </VStack>
+      ) : (
+        /* Vista de tabla para desktop */
+        <Box bg="purple.50" borderRadius="lg" boxShadow="sm" overflow="hidden">
+          <Box p={4} borderBottom="1px" borderColor="gray.200">
+            <Text fontSize="md" fontWeight="semibold" color="gray.800">
+              Listado de Pedidos - Mostrando {startIndex + 1}-{Math.min(endIndex, filteredOrders.length)} de {filteredOrders.length}
+            </Text>
+          </Box>
 
-                  {/* Fecha */}
-                  <Td color="gray.600">{order.date}</Td>
-
-                  {/* Acciones */}
-                  <Td>
-                    <IconButton
-                      aria-label="Ver detalles"
-                      icon={<FiEye />}
-                      size="sm"
-                      variant="ghost"
-                      colorScheme="blue"
-                      onClick={() => handleViewDetails(order)}
-                    />
-                  </Td>
+          <Box overflowX="auto">
+            <Table variant="simple" size="sm">
+              <Thead bg="gray.50">
+                <Tr>
+                  <Th>ID</Th>
+                  <Th>Cliente</Th>
+                  <Th display={{ base: 'none', lg: 'table-cell' }}>Contacto</Th>
+                  <Th display={{ base: 'none', xl: 'table-cell' }}>Productos</Th>
+                  <Th display={{ base: 'none', lg: 'table-cell' }}>Cantidad</Th>
+                  <Th>Total</Th>
+                  <Th>Estado</Th>
+                  <Th display={{ base: 'none', lg: 'table-cell' }}>Fecha</Th>
+                  <Th>Acciones</Th>
                 </Tr>
-              ))
-            ) : (
-              <Tr>
-                <Td colSpan={9} textAlign="center" py={8}>
-                  <Text color="gray.500" fontSize="lg">
-                    No se encontraron pedidos
-                  </Text>
-                  <Text color="gray.400" fontSize="sm" mt={2}>
-                    Intenta cambiar los filtros
-                  </Text>
-                </Td>
-              </Tr>
-            )}
-          </Tbody>
-        </Table>
-      </Box>
+              </Thead>
+              <Tbody>
+                {paginatedOrders.length > 0 ? (
+                  paginatedOrders.map((order) => (
+                    <Tr key={order.id}>
+                      <Td fontWeight="bold" color="blue.600">{order.id}</Td>
+                      <Td fontWeight="medium" color="gray.700" maxW="120px">
+                        <Text noOfLines={1}>{order.client}</Text>
+                      </Td>
+                      <Td display={{ base: 'none', lg: 'table-cell' }}>
+                        <HStack spacing={2}>
+                          <Icon as={FiPhone} color="gray.400" boxSize={4} />
+                          <Text fontSize="sm" color="gray.600">{order.contact}</Text>
+                        </HStack>
+                      </Td>
+                      <Td maxW="200px" display={{ base: 'none', xl: 'table-cell' }}>
+                        <Text fontSize="sm" color="gray.600" noOfLines={2}>{order.products}</Text>
+                      </Td>
+                      <Td color="gray.600" display={{ base: 'none', lg: 'table-cell' }}>{order.quantity} uds</Td>
+                      <Td fontWeight="semibold" color="gray.800">${order.total.toLocaleString()}</Td>
+                      <Td>
+                        <Badge colorScheme={getStatusColor(order.status)} fontSize="xs" px={2} py={1} borderRadius="full">
+                          {order.status}
+                        </Badge>
+                      </Td>
+                      <Td color="gray.600" display={{ base: 'none', lg: 'table-cell' }}>{order.date}</Td>
+                      <Td>
+                        <IconButton
+                          aria-label="Ver detalles"
+                          icon={<FiEye />}
+                          size="sm"
+                          variant="ghost"
+                          colorScheme="blue"
+                          onClick={() => handleViewDetails(order)}
+                        />
+                      </Td>
+                    </Tr>
+                  ))
+                ) : (
+                  <Tr>
+                    <Td colSpan={9} textAlign="center" py={8}>
+                      <Text color="gray.500" fontSize="lg">No se encontraron pedidos</Text>
+                      <Text color="gray.400" fontSize="sm" mt={2}>Intenta cambiar los filtros</Text>
+                    </Td>
+                  </Tr>
+                )}
+              </Tbody>
+            </Table>
+          </Box>
+        </Box>
+      )}
 
       {/* Controles de paginación */}
       {totalPages > 1 && (
-        <Flex justify="space-between" align="center" mt={4} p={4} bg="white" borderRadius="lg" boxShadow="sm">
-          <HStack spacing={2}>
+        <Stack
+          direction={{ base: 'column', lg: 'row' }}
+          justify="space-between"
+          align={{ base: 'stretch', lg: 'center' }}
+          mt={4}
+          p={{ base: 3, md: 4 }}
+          bg="white"
+          borderRadius="lg"
+          boxShadow="sm"
+          spacing={4}
+        >
+          <HStack spacing={2} display={{ base: 'none', md: 'flex' }}>
             <Text fontSize="sm" color="gray.600">Pedidos por página:</Text>
             <Select
               size="sm"
@@ -428,7 +489,7 @@ function Orders() {
             </Select>
           </HStack>
 
-          <HStack spacing={2}>
+          <HStack spacing={{ base: 1, md: 2 }} justify="center" flexWrap="wrap">
             <IconButton
               aria-label="Primera página"
               icon={<FiChevronsLeft />}
@@ -436,6 +497,7 @@ function Orders() {
               variant="outline"
               onClick={() => setCurrentPage(1)}
               isDisabled={currentPage === 1}
+              display={{ base: 'none', sm: 'flex' }}
             />
             <IconButton
               aria-label="Página anterior"
@@ -447,16 +509,19 @@ function Orders() {
             />
 
             <HStack spacing={1}>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              {Array.from({ length: Math.min(isMobile ? 3 : 5, totalPages) }, (_, i) => {
                 let pageNum;
-                if (totalPages <= 5) {
+                const visiblePages = isMobile ? 3 : 5;
+                const halfVisible = Math.floor(visiblePages / 2);
+
+                if (totalPages <= visiblePages) {
                   pageNum = i + 1;
-                } else if (currentPage <= 3) {
+                } else if (currentPage <= halfVisible + 1) {
                   pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
+                } else if (currentPage >= totalPages - halfVisible) {
+                  pageNum = totalPages - visiblePages + 1 + i;
                 } else {
-                  pageNum = currentPage - 2 + i;
+                  pageNum = currentPage - halfVisible + i;
                 }
                 return (
                   <Button
@@ -465,6 +530,8 @@ function Orders() {
                     variant={currentPage === pageNum ? 'solid' : 'outline'}
                     colorScheme={currentPage === pageNum ? 'purple' : 'gray'}
                     onClick={() => setCurrentPage(pageNum)}
+                    minW={{ base: '32px', md: '40px' }}
+                    px={{ base: 2, md: 3 }}
                   >
                     {pageNum}
                   </Button>
@@ -487,28 +554,28 @@ function Orders() {
               variant="outline"
               onClick={() => setCurrentPage(totalPages)}
               isDisabled={currentPage === totalPages}
+              display={{ base: 'none', sm: 'flex' }}
             />
           </HStack>
 
-          <Text fontSize="sm" color="gray.600">
+          <Text fontSize="sm" color="gray.600" textAlign={{ base: 'center', lg: 'right' }}>
             Página {currentPage} de {totalPages}
           </Text>
-        </Flex>
+        </Stack>
       )}
 
       {/* Información adicional */}
       <Box
         mt={6}
-        p={4}
+        p={{ base: 3, md: 4 }}
         bg="yellow.50"
         borderRadius="md"
         borderLeft="4px"
         borderColor="yellow.500"
       >
-        <Text fontSize="sm" color="yellow.800">
-          ⚠️ <strong>Importante:</strong> Los pedidos con estado "Pendiente"
-          requieren confirmación de pago. Revisa la sección de Pagos para más
-          detalles.
+        <Text fontSize={{ base: 'xs', md: 'sm' }} color="yellow.800">
+          <strong>Importante:</strong> Los pedidos con estado "Pendiente"
+          requieren confirmación de pago.
         </Text>
       </Box>
 
@@ -525,23 +592,24 @@ function Orders() {
           display="flex"
           alignItems="center"
           justifyContent="center"
+          p={{ base: 2, md: 4 }}
           onClick={handleCloseModal}
         >
           <Box
             bg="white"
             borderRadius="xl"
-            maxW="550px"
-            w="90%"
-            maxH="90vh"
+            maxW={{ base: '95%', md: '550px' }}
+            w="100%"
+            maxH={{ base: '95vh', md: '90vh' }}
             overflow="auto"
             boxShadow="2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <Box bg="purple.500" color="white" p={4} borderTopRadius="xl" position="relative">
+            <Box bg="purple.500" color="white" p={{ base: 3, md: 4 }} borderTopRadius="xl" position="relative">
               <HStack spacing={3}>
                 <Icon as={FiShoppingCart} boxSize={5} />
-                <Text fontSize="lg" fontWeight="bold">Resumen de Venta {selectedOrder.id}</Text>
+                <Text fontSize={{ base: 'md', md: 'lg' }} fontWeight="bold">Resumen de Venta {selectedOrder.id}</Text>
               </HStack>
               <IconButton
                 aria-label="Cerrar"
@@ -558,29 +626,29 @@ function Orders() {
             </Box>
 
             {/* Body */}
-            <Box p={6}>
-              <VStack spacing={5} align="stretch">
+            <Box p={{ base: 4, md: 6 }}>
+              <VStack spacing={{ base: 4, md: 5 }} align="stretch">
                 {/* Información del Cliente */}
                 <Box>
                   <HStack spacing={2} mb={3}>
-                    <Icon as={FiUser} color="blue.500" />
-                    <Text fontWeight="bold" color="gray.700">
+                    <Icon as={FiUser} color="blue.500" boxSize={{ base: 4, md: 5 }} />
+                    <Text fontWeight="bold" color="gray.700" fontSize={{ base: 'sm', md: 'md' }}>
                       Información del Cliente
                     </Text>
                   </HStack>
-                  <Box bg="gray.50" p={4} borderRadius="md">
+                  <Box bg="gray.50" p={{ base: 3, md: 4 }} borderRadius="md">
                     <VStack align="start" spacing={2}>
-                      <HStack justify="space-between" w="100%">
-                        <Text color="gray.600">Cliente:</Text>
-                        <Text fontWeight="medium">{selectedOrder.client}</Text>
-                      </HStack>
-                      <HStack justify="space-between" w="100%">
-                        <Text color="gray.600">Contacto:</Text>
+                      <Flex justify="space-between" w="100%" direction={{ base: 'column', sm: 'row' }} gap={1}>
+                        <Text color="gray.600" fontSize={{ base: 'xs', md: 'sm' }}>Cliente:</Text>
+                        <Text fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>{selectedOrder.client}</Text>
+                      </Flex>
+                      <Flex justify="space-between" w="100%" direction={{ base: 'column', sm: 'row' }} gap={1}>
+                        <Text color="gray.600" fontSize={{ base: 'xs', md: 'sm' }}>Contacto:</Text>
                         <HStack>
-                          <Icon as={FiPhone} color="gray.400" boxSize={4} />
-                          <Text fontWeight="medium">{selectedOrder.contact}</Text>
+                          <Icon as={FiPhone} color="gray.400" boxSize={{ base: 3, md: 4 }} />
+                          <Text fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>{selectedOrder.contact}</Text>
                         </HStack>
-                      </HStack>
+                      </Flex>
                     </VStack>
                   </Box>
                 </Box>
@@ -590,30 +658,30 @@ function Orders() {
                 {/* Detalles del Pedido */}
                 <Box>
                   <HStack spacing={2} mb={3}>
-                    <Icon as={FiPackage} color="blue.500" />
-                    <Text fontWeight="bold" color="gray.700">
+                    <Icon as={FiPackage} color="blue.500" boxSize={{ base: 4, md: 5 }} />
+                    <Text fontWeight="bold" color="gray.700" fontSize={{ base: 'sm', md: 'md' }}>
                       Detalles del Pedido
                     </Text>
                   </HStack>
-                  <Box bg="gray.50" p={4} borderRadius="md">
+                  <Box bg="gray.50" p={{ base: 3, md: 4 }} borderRadius="md">
                     <VStack align="start" spacing={2}>
-                      <HStack justify="space-between" w="100%">
-                        <Text color="gray.600">Productos:</Text>
-                        <Text fontWeight="medium" textAlign="right" maxW="250px">
+                      <Box w="100%">
+                        <Text color="gray.600" fontSize={{ base: 'xs', md: 'sm' }} mb={1}>Productos:</Text>
+                        <Text fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                           {selectedOrder.products}
                         </Text>
-                      </HStack>
-                      <HStack justify="space-between" w="100%">
-                        <Text color="gray.600">Cantidad:</Text>
-                        <Text fontWeight="medium">{selectedOrder.quantity} unidades</Text>
-                      </HStack>
-                      <HStack justify="space-between" w="100%">
-                        <Text color="gray.600">Fecha:</Text>
+                      </Box>
+                      <Flex justify="space-between" w="100%" direction={{ base: 'column', sm: 'row' }} gap={1}>
+                        <Text color="gray.600" fontSize={{ base: 'xs', md: 'sm' }}>Cantidad:</Text>
+                        <Text fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>{selectedOrder.quantity} unidades</Text>
+                      </Flex>
+                      <Flex justify="space-between" w="100%" direction={{ base: 'column', sm: 'row' }} gap={1}>
+                        <Text color="gray.600" fontSize={{ base: 'xs', md: 'sm' }}>Fecha:</Text>
                         <HStack>
-                          <Icon as={FiCalendar} color="gray.400" boxSize={4} />
-                          <Text fontWeight="medium">{selectedOrder.date}</Text>
+                          <Icon as={FiCalendar} color="gray.400" boxSize={{ base: 3, md: 4 }} />
+                          <Text fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>{selectedOrder.date}</Text>
                         </HStack>
-                      </HStack>
+                      </Flex>
                     </VStack>
                   </Box>
                 </Box>
@@ -623,34 +691,34 @@ function Orders() {
                 {/* Resumen Financiero */}
                 <Box>
                   <HStack spacing={2} mb={3}>
-                    <Icon as={FiDollarSign} color="blue.500" />
-                    <Text fontWeight="bold" color="gray.700">
+                    <Icon as={FiDollarSign} color="blue.500" boxSize={{ base: 4, md: 5 }} />
+                    <Text fontWeight="bold" color="gray.700" fontSize={{ base: 'sm', md: 'md' }}>
                       Resumen Financiero
                     </Text>
                   </HStack>
-                  <Box bg="purple.50" p={4} borderRadius="md">
+                  <Box bg="purple.50" p={{ base: 3, md: 4 }} borderRadius="md">
                     <VStack align="start" spacing={3}>
-                      <HStack justify="space-between" w="100%">
-                        <Text color="gray.600">Estado de Pago:</Text>
+                      <Flex justify="space-between" w="100%" align="center" wrap="wrap" gap={2}>
+                        <Text color="gray.600" fontSize={{ base: 'xs', md: 'sm' }}>Estado de Pago:</Text>
                         <Badge
                           colorScheme={getStatusColor(selectedOrder.status)}
-                          fontSize="sm"
+                          fontSize={{ base: 'xs', md: 'sm' }}
                           px={3}
                           py={1}
                           borderRadius="full"
                         >
                           {selectedOrder.status}
                         </Badge>
-                      </HStack>
+                      </Flex>
                       <Divider />
-                      <HStack justify="space-between" w="100%">
-                        <Text fontSize="lg" fontWeight="bold" color="gray.700">
+                      <Flex justify="space-between" w="100%" align="center" wrap="wrap" gap={2}>
+                        <Text fontSize={{ base: 'md', md: 'lg' }} fontWeight="bold" color="gray.700">
                           Total:
                         </Text>
-                        <Text fontSize="2xl" fontWeight="bold" color="white.600">
+                        <Text fontSize={{ base: 'xl', md: '2xl' }} fontWeight="bold" color="gray.800">
                           ${selectedOrder.total.toLocaleString()}
                         </Text>
-                      </HStack>
+                      </Flex>
                     </VStack>
                   </Box>
                 </Box>
@@ -658,15 +726,15 @@ function Orders() {
             </Box>
 
             {/* Footer */}
-            <Box p={4} borderTop="1px" borderColor="gray.200">
-              <HStack justify="flex-end" spacing={3}>
-                <Button variant="ghost" onClick={handleCloseModal}>
+            <Box p={{ base: 3, md: 4 }} borderTop="1px" borderColor="gray.200">
+              <Stack direction={{ base: 'column-reverse', sm: 'row' }} justify="flex-end" spacing={3}>
+                <Button variant="ghost" onClick={handleCloseModal} size={{ base: 'sm', md: 'md' }} w={{ base: '100%', sm: 'auto' }}>
                   Cerrar
                 </Button>
-                <Button colorScheme="green" leftIcon={<Icon as={FiCheckCircle} />}>
+                <Button colorScheme="green" leftIcon={<Icon as={FiCheckCircle} />} size={{ base: 'sm', md: 'md' }} w={{ base: '100%', sm: 'auto' }}>
                   Marcar como Pagado
                 </Button>
-              </HStack>
+              </Stack>
             </Box>
           </Box>
         </Box>

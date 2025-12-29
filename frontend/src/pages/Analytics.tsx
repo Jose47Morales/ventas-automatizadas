@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import {
   Box,
   Flex,
-  Grid,
   Heading,
   Text,
   Table,
@@ -14,9 +13,12 @@ import {
   Badge,
   Icon,
   HStack,
+  VStack,
   Spinner,
   Center,
   useToast,
+  useBreakpointValue,
+  SimpleGrid,
 } from '@chakra-ui/react';
 import {
   FiDollarSign,
@@ -68,35 +70,35 @@ interface StatsCardProps {
 
 function StatsCard({ title, value, change, isPositive, icon, iconBg }: StatsCardProps) {
   return (
-    <Box bg="purple.50" p={6} borderRadius="lg" boxShadow="sm">
+    <Box bg="purple.50" p={{ base: 4, md: 6 }} borderRadius="lg" boxShadow="sm">
       <Flex justify="space-between" align="start">
-        <Box>
-          <Text fontSize="sm" color="gray.600" mb={2}>
+        <Box flex={1} minW={0}>
+          <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600" mb={1}>
             {title}
           </Text>
-          <Text fontSize="2xl" fontWeight="bold" color="gray.800">
+          <Text fontSize={{ base: 'lg', md: '2xl' }} fontWeight="bold" color="gray.800" noOfLines={1}>
             {value}
           </Text>
-          <HStack mt={2} spacing={1}>
+          <HStack mt={2} spacing={1} flexWrap="wrap">
             <Icon
               as={isPositive ? FiArrowUp : FiArrowDown}
               color={isPositive ? 'green.500' : 'red.500'}
-              boxSize={4}
+              boxSize={{ base: 3, md: 4 }}
             />
             <Text
-              fontSize="sm"
+              fontSize={{ base: 'xs', md: 'sm' }}
               color={isPositive ? 'green.500' : 'red.500'}
               fontWeight="medium"
             >
               {change}
             </Text>
-            <Text fontSize="sm" color="gray.500">
+            <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.500" display={{ base: 'none', lg: 'inline' }}>
               vs mes anterior
             </Text>
           </HStack>
         </Box>
-        <Box bg={iconBg} p={3} borderRadius="md">
-          <Icon as={icon} boxSize={6} color="white" />
+        <Box bg={iconBg} p={{ base: 2, md: 3 }} borderRadius="md" flexShrink={0} ml={2}>
+          <Icon as={icon} boxSize={{ base: 4, md: 6 }} color="white" />
         </Box>
       </Flex>
     </Box>
@@ -111,6 +113,10 @@ function Analytics() {
   const [isLoading, setIsLoading] = useState(true);
 
   const toast = useToast();
+
+  // Responsive values
+  const isMobile = useBreakpointValue({ base: true, md: false });
+  const headingSize = useBreakpointValue({ base: 'md', md: 'lg' });
 
   // Cargar datos desde la API
   useEffect(() => {
@@ -254,140 +260,191 @@ function Analytics() {
       {/* Encabezado */}
       <Flex justify="space-between" align="center" mb={6}>
         <Box>
-          <Heading size="lg" color="gray.800">
+          <Heading size={headingSize} color="gray.800">
             Panel de Ventas y Analíticas
           </Heading>
-          <Text fontSize="sm" color="gray.600" mt={1}>
+          <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600" mt={1}>
             Métricas y reportes de rendimiento
           </Text>
         </Box>
       </Flex>
 
       {/* Tarjetas de métricas principales */}
-      <Grid templateColumns="repeat(4, 1fr)" gap={6} mb={6}>
+      <SimpleGrid columns={{ base: 2, md: 2, lg: 4 }} gap={{ base: 3, md: 6 }} mb={6}>
         {stats.map((stat, index) => (
           <StatsCard key={index} {...stat} />
         ))}
-      </Grid>
+      </SimpleGrid>
 
       {/* Métricas del Bot */}
-      <Grid templateColumns="repeat(4, 1fr)" gap={4} mb={6}>
+      <SimpleGrid columns={{ base: 2, md: 4 }} gap={{ base: 3, md: 4 }} mb={6}>
         {botMetrics.map((metric, index) => (
           <Box
             key={index}
             bg="purple.50"
-            p={4}
+            p={{ base: 3, md: 4 }}
             borderRadius="lg"
             boxShadow="sm"
             borderLeft="4px"
             borderColor={metric.color}
           >
-            <HStack spacing={3}>
-              <Icon as={metric.icon} color={metric.color} boxSize={5} />
+            <HStack spacing={{ base: 2, md: 3 }}>
+              <Icon as={metric.icon} color={metric.color} boxSize={{ base: 4, md: 5 }} />
               <Box>
-                <Text fontSize="sm" color="gray.600">
+                <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600" noOfLines={1}>
                   {metric.label}
                 </Text>
-                <Text fontSize="xl" fontWeight="bold" color="gray.800">
+                <Text fontSize={{ base: 'md', md: 'xl' }} fontWeight="bold" color="gray.800">
                   {metric.value}
                 </Text>
               </Box>
             </HStack>
           </Box>
         ))}
-      </Grid>
+      </SimpleGrid>
 
       {/* Gráfico de Ventas por Día */}
-      <Grid templateColumns="1fr" gap={6} mb={6}>
+      <Box mb={6}>
         <BarChart
           title="Ventas por Día de la Semana"
           subtitle="Distribución de ventas"
           data={dailySalesData}
           barColor="purple.400"
-          height={280}
+          height={isMobile ? 200 : 280}
           showValues={false}
         />
-      </Grid>
+      </Box>
 
-      {/* Tabla de Productos Más Vendidos */}
-      <Box bg="purple.50" p={6} borderRadius="lg" boxShadow="sm">
-        <Heading size="md" mb={2} color="gray.800">
+      {/* Productos Más Vendidos - Tabla en desktop, Tarjetas en móvil */}
+      <Box bg="purple.50" p={{ base: 4, md: 6 }} borderRadius="lg" boxShadow="sm">
+        <Heading size={{ base: 'sm', md: 'md' }} mb={2} color="gray.800">
           Productos Más Vendidos
         </Heading>
-        <Text fontSize="sm" color="gray.600" mb={4}>
+        <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600" mb={4}>
           Top 5 por ingresos
         </Text>
 
-        <Table variant="simple">
-          <Thead>
-            <Tr>
-              <Th>Posición</Th>
-              <Th>Producto</Th>
-              <Th>Unidades Vendidas</Th>
-              <Th>Valor Total</Th>
-              <Th>Tendencia</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
+        {isMobile ? (
+          /* Vista de tarjetas para móvil */
+          <VStack spacing={3} align="stretch">
             {topProducts.length > 0 ? (
               topProducts.map((product) => (
-                <Tr key={product.position} _hover={{ bg: 'gray.50' }}>
-                  <Td>
-                    <Badge
-                      colorScheme={product.position === 1 ? 'purple' : 'gray'}
-                      fontSize="md"
-                      px={3}
-                      py={1}
-                      borderRadius="full"
-                    >
-                      {product.position}
-                    </Badge>
-                  </Td>
-                  <Td>
-                    <Text fontWeight="medium" color="gray.700">
-                      {product.name}
-                    </Text>
-                  </Td>
-                  <Td>
-                    <Text color="gray.600">{product.units}</Text>
-                  </Td>
-                  <Td>
-                    <Text fontWeight="semibold" color="gray.800">
-                      {product.revenue}
-                    </Text>
-                  </Td>
-                  <Td>
+                <Box
+                  key={product.position}
+                  bg="white"
+                  p={3}
+                  borderRadius="md"
+                  borderLeft="3px"
+                  borderColor={product.position === 1 ? 'purple.500' : 'gray.300'}
+                >
+                  <Flex justify="space-between" align="start">
+                    <HStack spacing={2} flex={1}>
+                      <Badge
+                        colorScheme={product.position === 1 ? 'purple' : 'gray'}
+                        fontSize="sm"
+                        px={2}
+                        py={1}
+                        borderRadius="full"
+                      >
+                        {product.position}
+                      </Badge>
+                      <Text fontWeight="medium" color="gray.700" fontSize="sm" noOfLines={2}>
+                        {product.name}
+                      </Text>
+                    </HStack>
                     <Icon
                       as={product.trend === 'up' ? FiArrowUp : FiArrowDown}
                       color={product.trend === 'up' ? 'green.500' : 'red.500'}
-                      boxSize={5}
+                      boxSize={4}
                     />
-                  </Td>
-                </Tr>
+                  </Flex>
+                  <Flex justify="space-between" mt={2}>
+                    <Text fontSize="xs" color="gray.500">{product.units}</Text>
+                    <Text fontWeight="bold" color="gray.800" fontSize="sm">{product.revenue}</Text>
+                  </Flex>
+                </Box>
               ))
             ) : (
-              <Tr>
-                <Td colSpan={5} textAlign="center" py={8}>
-                  <Text color="gray.500" fontSize="lg">
-                    No hay datos de ventas disponibles
-                  </Text>
-                </Td>
-              </Tr>
+              <Box p={4} textAlign="center">
+                <Text color="gray.500">No hay datos de ventas disponibles</Text>
+              </Box>
             )}
-          </Tbody>
-        </Table>
+          </VStack>
+        ) : (
+          /* Vista de tabla para desktop */
+          <Box overflowX="auto">
+            <Table variant="simple" size={{ base: 'sm', lg: 'md' }}>
+              <Thead>
+                <Tr>
+                  <Th>Posición</Th>
+                  <Th>Producto</Th>
+                  <Th>Unidades Vendidas</Th>
+                  <Th>Valor Total</Th>
+                  <Th>Tendencia</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {topProducts.length > 0 ? (
+                  topProducts.map((product) => (
+                    <Tr key={product.position} _hover={{ bg: 'gray.50' }}>
+                      <Td>
+                        <Badge
+                          colorScheme={product.position === 1 ? 'purple' : 'gray'}
+                          fontSize="md"
+                          px={3}
+                          py={1}
+                          borderRadius="full"
+                        >
+                          {product.position}
+                        </Badge>
+                      </Td>
+                      <Td>
+                        <Text fontWeight="medium" color="gray.700" noOfLines={1} maxW="200px">
+                          {product.name}
+                        </Text>
+                      </Td>
+                      <Td>
+                        <Text color="gray.600">{product.units}</Text>
+                      </Td>
+                      <Td>
+                        <Text fontWeight="semibold" color="gray.800">
+                          {product.revenue}
+                        </Text>
+                      </Td>
+                      <Td>
+                        <Icon
+                          as={product.trend === 'up' ? FiArrowUp : FiArrowDown}
+                          color={product.trend === 'up' ? 'green.500' : 'red.500'}
+                          boxSize={5}
+                        />
+                      </Td>
+                    </Tr>
+                  ))
+                ) : (
+                  <Tr>
+                    <Td colSpan={5} textAlign="center" py={8}>
+                      <Text color="gray.500" fontSize="lg">
+                        No hay datos de ventas disponibles
+                      </Text>
+                    </Td>
+                  </Tr>
+                )}
+              </Tbody>
+            </Table>
+          </Box>
+        )}
       </Box>
 
       {/* Información adicional */}
       <Box
         mt={6}
-        p={4}
+        p={{ base: 3, md: 4 }}
         bg="blue.50"
         borderRadius="md"
         borderLeft="4px"
         borderColor="blue.500"
       >
-        <Text fontSize="sm" color="blue.800">
+        <Text fontSize={{ base: 'xs', md: 'sm' }} color="blue.800">
           Las métricas se calculan en tiempo real desde las órdenes y la actividad del bot de WhatsApp.
         </Text>
       </Box>

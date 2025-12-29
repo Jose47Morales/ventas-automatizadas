@@ -10,7 +10,35 @@ const axios = require('axios');
 const { Pool } = require('pg');
 
 const app = express();
-app.use(cors());
+
+// Configuración de CORS
+const allowedOrigins = [
+    'http://localhost:5173',           // Vite dev server
+    'http://localhost:3000',           // CRA dev server
+    'https://ventas-automatizadas.fly.dev',  // Frontend en producción
+    process.env.FRONTEND_URL,          // URL configurable desde .env
+].filter(Boolean);
+
+const corsOptions = {
+    origin: function (origin, callback) {
+        // Permitir requests sin origin (como mobile apps o curl)
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            console.warn(`CORS: Origin ${origin} no permitido`);
+            callback(null, true); // En desarrollo permitir todos, en prod cambiar a: callback(new Error('Not allowed by CORS'))
+        }
+    },
+    credentials: true, // Permitir cookies/headers de autenticación
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 600, // Cache preflight por 10 minutos
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

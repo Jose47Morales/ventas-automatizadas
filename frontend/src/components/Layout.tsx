@@ -27,8 +27,16 @@ import {
   TabPanel,
   Divider,
   useToast,
+  useDisclosure,
+  Drawer,
+  DrawerBody,
+  DrawerHeader,
+  DrawerOverlay,
+  DrawerContent,
+  DrawerCloseButton,
+  useBreakpointValue,
 } from '@chakra-ui/react';
-import { SearchIcon, BellIcon, ChevronDownIcon } from '@chakra-ui/icons';
+import { SearchIcon, BellIcon, ChevronDownIcon, HamburgerIcon } from '@chakra-ui/icons';
 import {
   FiPackage,
   FiShoppingCart,
@@ -48,7 +56,7 @@ import { productsAPI, ordersAPI } from '../services/api';
 
 // Interfaces para los resultados de búsqueda
 interface SearchProduct {
-  id_producto: number;
+  id: string;
   nombre: string;
   categoria: string;
   marca: string;
@@ -61,15 +69,22 @@ interface SearchProduct {
   codigo_barras: string;
   ubicacion: string;
   proveedor: string;
+  costo: string;
+  precio_compra: string;
+  impuesto: string;
+  nota: string;
 }
 
 interface SearchOrder {
-  id: number;
-  customer_name: string;
-  total: number;
-  status: string;
+  id: string;
+  client_name: string;
+  client_phone: string;
+  total_amount: string;
+  payment_status: string;
+  order_status: string;
   created_at: string;
-  items?: any[];
+  source: string;
+  notes: string;
 }
 
 // Componente MenuItem: Un item del menú lateral
@@ -79,14 +94,15 @@ interface MenuItemProps {
   path: string;
   isActive: boolean;
   onClick: () => void;
+  collapsed?: boolean;
 }
 
-function MenuItem({ icon, label, isActive, onClick }: MenuItemProps) {
+function MenuItem({ icon, label, isActive, onClick, collapsed }: MenuItemProps) {
   return (
     <Flex
       align="center"
       gap={3}
-      px={4}
+      px={collapsed ? 2 : 4}
       py={3}
       borderRadius="md"
       cursor="pointer"
@@ -95,11 +111,14 @@ function MenuItem({ icon, label, isActive, onClick }: MenuItemProps) {
       _hover={{ bg: 'green.50', color: 'green.600' }}
       onClick={onClick}
       transition="all 0.2s"
+      justify={collapsed ? 'center' : 'flex-start'}
     >
       <Icon as={icon} boxSize={5} />
-      <Text fontWeight={isActive ? 'semibold' : 'medium'}>
-        {label}
-      </Text>
+      {!collapsed && (
+        <Text fontWeight={isActive ? 'semibold' : 'medium'} fontSize={{ base: 'sm', md: 'md' }}>
+          {label}
+        </Text>
+      )}
     </Flex>
   );
 }
@@ -110,6 +129,7 @@ function Layout() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const toast = useToast();
+  const { isOpen, onOpen, onClose } = useDisclosure();
 
   // Estados para la búsqueda
   const [searchTerm, setSearchTerm] = useState('');
@@ -121,6 +141,10 @@ function Layout() {
   }>({ products: [], orders: [] });
   const [selectedItem, setSelectedItem] = useState<SearchProduct | SearchOrder | null>(null);
   const [selectedType, setSelectedType] = useState<'product' | 'order' | null>(null);
+
+  // Responsive values
+  const isMobile = useBreakpointValue({ base: true, lg: false });
+  const sidebarWidth = useBreakpointValue({ base: '100%', md: '220px', lg: '250px' });
 
   // Función para verificar si una ruta está activa
   const isActive = (path: string) => {
@@ -156,9 +180,11 @@ function Layout() {
       try {
         const allOrders = await ordersAPI.getAll();
         filteredOrders = allOrders.filter((o: SearchOrder) =>
-          o.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          o.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          o.client_phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           o.id?.toString().includes(searchTerm) ||
-          o.status?.toLowerCase().includes(searchTerm.toLowerCase())
+          o.order_status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          o.payment_status?.toLowerCase().includes(searchTerm.toLowerCase())
         );
       } catch {
         // Si no hay endpoint de orders, ignorar
@@ -207,6 +233,12 @@ function Layout() {
     setSelectedType('order');
   };
 
+  // Navegar y cerrar drawer en móvil
+  const handleNavigate = (path: string) => {
+    navigate(path);
+    if (isMobile) onClose();
+  };
+
   // Obtener color de estado de stock
   const getStockColor = (stock: number, minStock: number) => {
     if (stock <= 0) return 'red';
@@ -248,105 +280,139 @@ function Layout() {
     { icon: FiBell, label: 'Notificaciones', path: '/notifications' },
   ];
 
+  // Contenido del sidebar (reutilizable para drawer y sidebar fijo)
+  const SidebarContent = () => (
+    <>
+      {/* Logo */}
+      <Flex align="center" gap={2} mb={8} px={2}>
+        <Box
+          w={{ base: 8, md: 10 }}
+          h={{ base: 8, md: 10 }}
+          borderRadius="md"
+          overflow="hidden"
+          flexShrink={0}
+        >
+          <img
+            src="/logo.png"
+            alt="Bodega Mayorista"
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          />
+        </Box>
+        <Text fontSize={{ base: 'md', md: 'xl' }} fontWeight="bold" color="gray.800" noOfLines={1}>
+          BodegaMayorista
+        </Text>
+      </Flex>
+
+      {/* Menú de navegación */}
+      <VStack spacing={1} align="stretch" flex={1}>
+        {menuItems.map((item) => (
+          <MenuItem
+            key={item.path}
+            icon={item.icon}
+            label={item.label}
+            path={item.path}
+            isActive={isActive(item.path)}
+            onClick={() => handleNavigate(item.path)}
+          />
+        ))}
+      </VStack>
+
+      {/* Información de versión */}
+      <Box pt={4} mt="auto">
+        <Text fontSize="xs" color="gray.400" textAlign="center">
+          Panel Mayorista v1.0.0
+        </Text>
+      </Box>
+    </>
+  );
+
   return (
     <Flex h="100vh" bg="gray.50" overflow="hidden">
-      {/* SIDEBAR - Menú lateral */}
-      <Box
-        w="250px"
-        bg="purple.50"
-        borderRight="1px"
-        borderColor="gray.200"
-        p={4}
-        flexShrink={0}
-      >
-        {/* Logo */}
-        <Flex align="center" gap={2} mb={8}>
-          <Box
-            bg="purple.500"
-            w={10}
-            h={10}
-            borderRadius="md"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Icon viewBox="0 0 24 24" color="white" boxSize={6}>
-              <path
-                fill="currentColor"
-                d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"
-              />
-            </Icon>
-          </Box>
-          <Text fontSize="xl" fontWeight="bold" color="gray.800">
-            Bodega Mayorista
-          </Text>
-        </Flex>
-
-        {/* Menú de navegación */}
-        <VStack spacing={1} align="stretch">
-          {menuItems.map((item) => (
-            <MenuItem
-              key={item.path}
-              icon={item.icon}
-              label={item.label}
-              path={item.path}
-              isActive={isActive(item.path)}
-              onClick={() => navigate(item.path)}
-            />
-          ))}
-        </VStack>
-
-        {/* Información de versión (abajo del sidebar) */}
-        <Box position="absolute" bottom={4} left={4} right={4}>
-          <Text fontSize="xs" color="gray.400" textAlign="center">
-            Panel Mayorista v1.0.0
-          </Text>
+      {/* SIDEBAR - Solo visible en desktop */}
+      {!isMobile && (
+        <Box
+          w={sidebarWidth}
+          bg="purple.50"
+          borderRight="1px"
+          borderColor="gray.200"
+          p={4}
+          flexShrink={0}
+          display="flex"
+          flexDirection="column"
+        >
+          <SidebarContent />
         </Box>
-      </Box>
+      )}
+
+      {/* Drawer para móvil */}
+      <Drawer isOpen={isOpen} placement="left" onClose={onClose} size="xs">
+        <DrawerOverlay />
+        <DrawerContent bg="purple.50">
+          <DrawerCloseButton />
+          <DrawerHeader borderBottomWidth="1px">Menú</DrawerHeader>
+          <DrawerBody display="flex" flexDirection="column" p={4}>
+            <SidebarContent />
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
 
       {/* CONTENIDO PRINCIPAL */}
       <Flex flex={1} direction="column" overflow="hidden" minW={0}>
         {/* HEADER - Barra superior */}
         <Flex
-          h="70px"
+          h={{ base: '60px', md: '70px' }}
           bg="purple.50"
           borderBottom="1px"
           borderColor="gray.200"
-          px={6}
+          px={{ base: 3, md: 6 }}
           align="center"
           justify="space-between"
           flexShrink={0}
+          gap={2}
         >
+          {/* Botón hamburguesa en móvil */}
+          {isMobile && (
+            <IconButton
+              aria-label="Abrir menú"
+              icon={<HamburgerIcon />}
+              variant="ghost"
+              onClick={onOpen}
+              size="md"
+            />
+          )}
+
           {/* Barra de búsqueda */}
-          <InputGroup maxW="400px">
+          <InputGroup maxW={{ base: '100%', sm: '300px', md: '400px' }} flex={1}>
             <InputLeftElement pointerEvents="none">
               <SearchIcon color="gray.400" />
             </InputLeftElement>
             <Input
-              placeholder="Buscar productos, pedidos, clientes..."
+              placeholder={isMobile ? 'Buscar...' : 'Buscar productos, pedidos, clientes...'}
               bg="gray.50"
               border="none"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={handleSearchKeyDown}
+              size={{ base: 'sm', md: 'md' }}
             />
           </InputGroup>
 
           {/* Sección derecha del header */}
-          <HStack spacing={4}>
+          <HStack spacing={{ base: 1, md: 4 }}>
             {/* Notificaciones */}
             <Box position="relative">
               <IconButton
                 aria-label="Notificaciones"
                 icon={<BellIcon />}
                 variant="ghost"
-                fontSize="20px"
+                fontSize={{ base: '18px', md: '20px' }}
+                size={{ base: 'sm', md: 'md' }}
                 onClick={() => navigate('/notifications')}
               />
               <Badge
                 position="absolute"
-                top={1}
-                right={1}
+                top={0}
+                right={0}
                 colorScheme="red"
                 borderRadius="full"
                 fontSize="xs"
@@ -362,25 +428,28 @@ function Layout() {
               <MenuButton
                 as={Button}
                 variant="ghost"
-                rightIcon={<ChevronDownIcon />}
-                pl={3}
-                borderLeft="1px"
+                rightIcon={!isMobile ? <ChevronDownIcon /> : undefined}
+                pl={{ base: 1, md: 3 }}
+                borderLeft={{ base: 'none', md: '1px' }}
                 borderColor="gray.200"
+                size={{ base: 'sm', md: 'md' }}
               >
-                <HStack spacing={3}>
-                  <Avatar size="sm" name={user?.name || 'Admin'} bg="purple.500" />
-                  <Box textAlign="left">
-                    <Text fontSize="sm" fontWeight="medium" color="gray.700">
-                      {user?.name || 'Admin'}
-                    </Text>
-                    <Text fontSize="xs" color="gray.500">
-                      {user?.role || 'Administrador'}
-                    </Text>
-                  </Box>
+                <HStack spacing={{ base: 1, md: 3 }}>
+                  <Avatar size={{ base: 'xs', md: 'sm' }} name={user?.name || 'Admin'} bg="purple.500" />
+                  {!isMobile && (
+                    <Box textAlign="left" display={{ base: 'none', md: 'block' }}>
+                      <Text fontSize="sm" fontWeight="medium" color="gray.700">
+                        {user?.name || 'Admin'}
+                      </Text>
+                      <Text fontSize="xs" color="gray.500">
+                        {user?.role || 'Administrador'}
+                      </Text>
+                    </Box>
+                  )}
                 </HStack>
               </MenuButton>
               <MenuList>
-    <MenuItemChakra>
+                <MenuItemChakra>
                   <HStack spacing={2}>
                     <Icon as={FiUser} />
                     <Text>Mi Perfil</Text>
@@ -403,9 +472,9 @@ function Layout() {
           flex={1}
           overflow="auto"
           bg="gray.50"
-          p={8}
+          p={{ base: 3, sm: 4, md: 6, lg: 8 }}
         >
-          <Box maxW="1400px" mx="auto" w="full">
+          <Box w="full" maxW="1600px" mx="auto">
             {/* Outlet es donde se muestran las páginas hijas (Dashboard, Products, etc.) */}
             <Outlet />
           </Box>
@@ -425,24 +494,25 @@ function Layout() {
           display="flex"
           alignItems="center"
           justifyContent="center"
+          p={{ base: 2, md: 4 }}
           onClick={closeSearchModal}
         >
           <Box
             bg="white"
-            borderRadius="xl"
+            borderRadius={{ base: 'lg', md: 'xl' }}
             maxW="900px"
-            w="95%"
-            maxH="85vh"
+            w="100%"
+            maxH={{ base: '95vh', md: '85vh' }}
             overflow="hidden"
             boxShadow="2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header del Modal */}
-            <Box bg="purple.500" color="white" p={4} position="relative">
-              <HStack spacing={3}>
-                <Icon as={SearchIcon} boxSize={5} />
-                <Text fontSize="lg" fontWeight="bold">
-                  Resultados de búsqueda: "{searchTerm}"
+            <Box bg="purple.500" color="white" p={{ base: 3, md: 4 }} position="relative">
+              <HStack spacing={2}>
+                <Icon as={SearchIcon} boxSize={{ base: 4, md: 5 }} />
+                <Text fontSize={{ base: 'md', md: 'lg' }} fontWeight="bold" noOfLines={1}>
+                  Resultados: "{searchTerm}"
                 </Text>
               </HStack>
               <IconButton
@@ -460,9 +530,16 @@ function Layout() {
             </Box>
 
             {/* Contenido del Modal */}
-            <Flex h="calc(85vh - 60px)">
+            <Flex h={{ base: 'calc(95vh - 60px)', md: 'calc(85vh - 60px)' }} direction={{ base: 'column', md: 'row' }}>
               {/* Panel izquierdo - Lista de resultados */}
-              <Box w={selectedItem ? "50%" : "100%"} borderRight={selectedItem ? "1px" : "none"} borderColor="gray.200" overflow="auto">
+              <Box
+                w={{ base: '100%', md: selectedItem ? '50%' : '100%' }}
+                borderRight={{ base: 'none', md: selectedItem ? '1px' : 'none' }}
+                borderBottom={{ base: selectedItem ? '1px' : 'none', md: 'none' }}
+                borderColor="gray.200"
+                overflow="auto"
+                maxH={{ base: selectedItem ? '40vh' : '100%', md: '100%' }}
+              >
                 {isSearching ? (
                   <Flex justify="center" align="center" h="200px">
                     <VStack spacing={3}>
@@ -472,15 +549,15 @@ function Layout() {
                   </Flex>
                 ) : (
                   <Tabs colorScheme="purple" size="sm">
-                    <TabList px={4} pt={2}>
-                      <Tab>
-                        <HStack spacing={2}>
+                    <TabList px={{ base: 2, md: 4 }} pt={2}>
+                      <Tab fontSize={{ base: 'xs', md: 'sm' }}>
+                        <HStack spacing={1}>
                           <Icon as={FiPackage} />
                           <Text>Productos ({searchResults.products.length})</Text>
                         </HStack>
                       </Tab>
-                      <Tab>
-                        <HStack spacing={2}>
+                      <Tab fontSize={{ base: 'xs', md: 'sm' }}>
+                        <HStack spacing={1}>
                           <Icon as={FiShoppingCart} />
                           <Text>Pedidos ({searchResults.orders.length})</Text>
                         </HStack>
@@ -498,34 +575,34 @@ function Layout() {
                           <VStack spacing={0} align="stretch">
                             {searchResults.products.map((product) => (
                               <Box
-                                key={product.id_producto}
-                                p={4}
+                                key={product.id}
+                                p={{ base: 3, md: 4 }}
                                 borderBottom="1px"
                                 borderColor="gray.100"
                                 cursor="pointer"
-                                bg={selectedItem && selectedType === 'product' && (selectedItem as SearchProduct).id_producto === product.id_producto ? 'purple.50' : 'white'}
+                                bg={selectedItem && selectedType === 'product' && (selectedItem as SearchProduct).id === product.id ? 'purple.50' : 'white'}
                                 _hover={{ bg: 'gray.50' }}
                                 onClick={() => handleSelectProduct(product)}
                               >
-                                <HStack justify="space-between">
-                                  <VStack align="start" spacing={1}>
-                                    <Text fontWeight="semibold" color="gray.800">
+                                <Flex justify="space-between" align="start" gap={2} flexWrap={{ base: 'wrap', sm: 'nowrap' }}>
+                                  <VStack align="start" spacing={1} flex={1} minW={0}>
+                                    <Text fontWeight="semibold" color="gray.800" fontSize={{ base: 'sm', md: 'md' }} noOfLines={1}>
                                       {product.nombre}
                                     </Text>
-                                    <HStack spacing={2}>
-                                      <Badge colorScheme="blue" size="sm">{product.categoria || 'Sin categoría'}</Badge>
-                                      <Badge colorScheme="purple" size="sm">{product.marca || 'Sin marca'}</Badge>
+                                    <HStack spacing={1} flexWrap="wrap">
+                                      <Badge colorScheme="blue" fontSize="xs">{product.categoria || 'Sin categoría'}</Badge>
+                                      <Badge colorScheme="purple" fontSize="xs">{product.marca || 'Sin marca'}</Badge>
                                     </HStack>
                                   </VStack>
-                                  <VStack align="end" spacing={1}>
-                                    <Text fontWeight="bold" color="green.600">
+                                  <VStack align="end" spacing={1} flexShrink={0}>
+                                    <Text fontWeight="bold" color="green.600" fontSize={{ base: 'sm', md: 'md' }}>
                                       ${formatPrice(product.precioventa_con_impuesto || '0')}
                                     </Text>
-                                    <Badge colorScheme={getStockColor(product.existencias, product.stock_minimo)}>
+                                    <Badge colorScheme={getStockColor(product.existencias, product.stock_minimo)} fontSize="xs">
                                       Stock: {product.existencias}
                                     </Badge>
                                   </VStack>
-                                </HStack>
+                                </Flex>
                               </Box>
                             ))}
                           </VStack>
@@ -543,7 +620,7 @@ function Layout() {
                             {searchResults.orders.map((order) => (
                               <Box
                                 key={order.id}
-                                p={4}
+                                p={{ base: 3, md: 4 }}
                                 borderBottom="1px"
                                 borderColor="gray.100"
                                 cursor="pointer"
@@ -551,24 +628,30 @@ function Layout() {
                                 _hover={{ bg: 'gray.50' }}
                                 onClick={() => handleSelectOrder(order)}
                               >
-                                <HStack justify="space-between">
-                                  <VStack align="start" spacing={1}>
-                                    <Text fontWeight="semibold" color="gray.800">
-                                      Pedido #{order.id}
+                                <Flex justify="space-between" align="start" gap={2}>
+                                  <VStack align="start" spacing={1} flex={1} minW={0}>
+                                    <Text fontWeight="semibold" color="gray.800" fontSize={{ base: 'sm', md: 'md' }}>
+                                      Pedido #{order.id.slice(0, 8)}...
                                     </Text>
-                                    <Text fontSize="sm" color="gray.600">
-                                      {order.customer_name || 'Cliente no especificado'}
+                                    <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600" noOfLines={1}>
+                                      {order.client_name || 'Cliente no especificado'}
+                                    </Text>
+                                    <Text fontSize="xs" color="gray.500">
+                                      {order.client_phone}
                                     </Text>
                                   </VStack>
-                                  <VStack align="end" spacing={1}>
-                                    <Text fontWeight="bold" color="green.600">
-                                      ${formatPrice(order.total || 0)}
+                                  <VStack align="end" spacing={1} flexShrink={0}>
+                                    <Text fontWeight="bold" color="green.600" fontSize={{ base: 'sm', md: 'md' }}>
+                                      ${formatPrice(order.total_amount || 0)}
                                     </Text>
-                                    <Badge colorScheme={getOrderStatusColor(order.status)}>
-                                      {order.status || 'Pendiente'}
+                                    <Badge colorScheme={getOrderStatusColor(order.order_status)} fontSize="xs">
+                                      {order.order_status || 'Pendiente'}
+                                    </Badge>
+                                    <Badge colorScheme={order.payment_status === 'paid' ? 'green' : 'orange'} fontSize="xs">
+                                      {order.payment_status === 'paid' ? 'Pagado' : 'Pendiente'}
                                     </Badge>
                                   </VStack>
-                                </HStack>
+                                </Flex>
                               </Box>
                             ))}
                           </VStack>
@@ -581,14 +664,19 @@ function Layout() {
 
               {/* Panel derecho - Detalles del item seleccionado */}
               {selectedItem && (
-                <Box w="50%" overflow="auto" bg="gray.50">
+                <Box
+                  w={{ base: '100%', md: '50%' }}
+                  overflow="auto"
+                  bg="gray.50"
+                  flex={{ base: 1, md: 'none' }}
+                >
                   {selectedType === 'product' && (
-                    <Box p={6}>
+                    <Box p={{ base: 4, md: 6 }}>
                       <VStack align="stretch" spacing={4}>
                         <Box textAlign="center" pb={4} borderBottom="1px" borderColor="gray.200">
                           <Box
-                            w={16}
-                            h={16}
+                            w={{ base: 12, md: 16 }}
+                            h={{ base: 12, md: 16 }}
                             bg="purple.100"
                             borderRadius="full"
                             display="flex"
@@ -597,103 +685,94 @@ function Layout() {
                             mx="auto"
                             mb={3}
                           >
-                            <Icon as={FiPackage} boxSize={8} color="purple.500" />
+                            <Icon as={FiPackage} boxSize={{ base: 6, md: 8 }} color="purple.500" />
                           </Box>
-                          <Text fontSize="xl" fontWeight="bold" color="gray.800">
+                          <Text fontSize={{ base: 'lg', md: 'xl' }} fontWeight="bold" color="gray.800" noOfLines={2}>
                             {(selectedItem as SearchProduct).nombre}
                           </Text>
-                          <HStack justify="center" spacing={2} mt={2}>
+                          <HStack justify="center" spacing={2} mt={2} flexWrap="wrap">
                             <Badge colorScheme="blue">{(selectedItem as SearchProduct).categoria || 'Sin categoría'}</Badge>
                             <Badge colorScheme="purple">{(selectedItem as SearchProduct).marca || 'Sin marca'}</Badge>
                           </HStack>
                         </Box>
 
-                        <Text fontWeight="bold" color="gray.700" fontSize="lg">Información del Producto</Text>
+                        <Text fontWeight="bold" color="gray.700" fontSize={{ base: 'md', md: 'lg' }}>Información del Producto</Text>
 
-                        <Box bg="white" p={4} borderRadius="md" boxShadow="sm">
+                        <Box bg="white" p={{ base: 3, md: 4 }} borderRadius="md" boxShadow="sm">
                           <VStack align="stretch" spacing={3}>
-                            <HStack justify="space-between">
+                            <Flex justify="space-between" flexWrap="wrap" gap={1}>
                               <HStack spacing={2}>
-                                <Icon as={FiTag} color="gray.500" />
-                                <Text color="gray.600">Referencia:</Text>
+                                <Icon as={FiTag} color="gray.500" boxSize={4} />
+                                <Text color="gray.600" fontSize={{ base: 'sm', md: 'md' }}>Referencia:</Text>
                               </HStack>
-                              <Text fontWeight="medium">{(selectedItem as SearchProduct).referencia || 'N/A'}</Text>
-                            </HStack>
+                              <Text fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>{(selectedItem as SearchProduct).referencia || 'N/A'}</Text>
+                            </Flex>
                             <Divider />
-                            <HStack justify="space-between">
+                            <Flex justify="space-between" flexWrap="wrap" gap={1}>
                               <HStack spacing={2}>
-                                <Icon as={FiHash} color="gray.500" />
-                                <Text color="gray.600">Código de Barras:</Text>
+                                <Icon as={FiHash} color="gray.500" boxSize={4} />
+                                <Text color="gray.600" fontSize={{ base: 'sm', md: 'md' }}>Código:</Text>
                               </HStack>
-                              <Text fontWeight="medium">{(selectedItem as SearchProduct).codigo_barras || 'N/A'}</Text>
-                            </HStack>
+                              <Text fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>{(selectedItem as SearchProduct).codigo_barras || 'N/A'}</Text>
+                            </Flex>
                             <Divider />
-                            <HStack justify="space-between">
+                            <Flex justify="space-between" flexWrap="wrap" gap={1}>
                               <HStack spacing={2}>
-                                <Icon as={FiMapPin} color="gray.500" />
-                                <Text color="gray.600">Ubicación:</Text>
+                                <Icon as={FiMapPin} color="gray.500" boxSize={4} />
+                                <Text color="gray.600" fontSize={{ base: 'sm', md: 'md' }}>Ubicación:</Text>
                               </HStack>
-                              <Text fontWeight="medium">{(selectedItem as SearchProduct).ubicacion || 'N/A'}</Text>
-                            </HStack>
+                              <Text fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>{(selectedItem as SearchProduct).ubicacion || 'N/A'}</Text>
+                            </Flex>
                             <Divider />
-                            <HStack justify="space-between">
+                            <Flex justify="space-between" flexWrap="wrap" gap={1}>
                               <HStack spacing={2}>
-                                <Icon as={FiUser} color="gray.500" />
-                                <Text color="gray.600">Proveedor:</Text>
+                                <Icon as={FiUser} color="gray.500" boxSize={4} />
+                                <Text color="gray.600" fontSize={{ base: 'sm', md: 'md' }}>Proveedor:</Text>
                               </HStack>
-                              <Text fontWeight="medium">{(selectedItem as SearchProduct).proveedor || 'N/A'}</Text>
-                            </HStack>
+                              <Text fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>{(selectedItem as SearchProduct).proveedor || 'N/A'}</Text>
+                            </Flex>
                           </VStack>
                         </Box>
 
-                        <Text fontWeight="bold" color="gray.700" fontSize="lg">Precios e Inventario</Text>
+                        <Text fontWeight="bold" color="gray.700" fontSize={{ base: 'md', md: 'lg' }}>Precios e Inventario</Text>
 
-                        <Box bg="white" p={4} borderRadius="md" boxShadow="sm">
+                        <Box bg="white" p={{ base: 3, md: 4 }} borderRadius="md" boxShadow="sm">
                           <VStack align="stretch" spacing={3}>
-                            <HStack justify="space-between">
+                            <Flex justify="space-between" align="center">
                               <HStack spacing={2}>
-                                <Icon as={FiDollarSign} color="green.500" />
-                                <Text color="gray.600">Precio Venta:</Text>
+                                <Icon as={FiDollarSign} color="green.500" boxSize={4} />
+                                <Text color="gray.600" fontSize={{ base: 'sm', md: 'md' }}>Precio Venta:</Text>
                               </HStack>
-                              <Text fontWeight="bold" fontSize="lg" color="green.600">
+                              <Text fontWeight="bold" fontSize={{ base: 'md', md: 'lg' }} color="green.600">
                                 ${formatPrice((selectedItem as SearchProduct).precioventa_con_impuesto || '0')}
                               </Text>
-                            </HStack>
+                            </Flex>
                             <Divider />
-                            <HStack justify="space-between">
+                            <Flex justify="space-between" align="center">
                               <HStack spacing={2}>
-                                <Icon as={FiDollarSign} color="gray.500" />
-                                <Text color="gray.600">Precio Base:</Text>
-                              </HStack>
-                              <Text fontWeight="medium">
-                                ${formatPrice((selectedItem as SearchProduct).precio_venta_base || '0')}
-                              </Text>
-                            </HStack>
-                            <Divider />
-                            <HStack justify="space-between">
-                              <HStack spacing={2}>
-                                <Icon as={FiBox} color="gray.500" />
-                                <Text color="gray.600">Existencias:</Text>
+                                <Icon as={FiBox} color="gray.500" boxSize={4} />
+                                <Text color="gray.600" fontSize={{ base: 'sm', md: 'md' }}>Existencias:</Text>
                               </HStack>
                               <Badge
                                 colorScheme={getStockColor((selectedItem as SearchProduct).existencias, (selectedItem as SearchProduct).stock_minimo)}
-                                fontSize="md"
+                                fontSize={{ base: 'sm', md: 'md' }}
                                 px={3}
                                 py={1}
                               >
-                                {(selectedItem as SearchProduct).existencias} unidades
+                                {(selectedItem as SearchProduct).existencias} uds
                               </Badge>
-                            </HStack>
+                            </Flex>
                             <Divider />
-                            <HStack justify="space-between">
-                              <Text color="gray.600">Stock Mínimo:</Text>
-                              <Text fontWeight="medium">{(selectedItem as SearchProduct).stock_minimo} unidades</Text>
-                            </HStack>
+                            <Flex justify="space-between">
+                              <Text color="gray.600" fontSize={{ base: 'sm', md: 'md' }}>Stock Mínimo:</Text>
+                              <Text fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>{(selectedItem as SearchProduct).stock_minimo} uds</Text>
+                            </Flex>
                           </VStack>
                         </Box>
 
                         <Button
                           colorScheme="purple"
+                          size={{ base: 'sm', md: 'md' }}
                           onClick={() => {
                             closeSearchModal();
                             navigate('/products');
@@ -706,12 +785,12 @@ function Layout() {
                   )}
 
                   {selectedType === 'order' && (
-                    <Box p={6}>
+                    <Box p={{ base: 4, md: 6 }}>
                       <VStack align="stretch" spacing={4}>
                         <Box textAlign="center" pb={4} borderBottom="1px" borderColor="gray.200">
                           <Box
-                            w={16}
-                            h={16}
+                            w={{ base: 12, md: 16 }}
+                            h={{ base: 12, md: 16 }}
                             bg="blue.100"
                             borderRadius="full"
                             display="flex"
@@ -720,57 +799,86 @@ function Layout() {
                             mx="auto"
                             mb={3}
                           >
-                            <Icon as={FiShoppingCart} boxSize={8} color="blue.500" />
+                            <Icon as={FiShoppingCart} boxSize={{ base: 6, md: 8 }} color="blue.500" />
                           </Box>
-                          <Text fontSize="xl" fontWeight="bold" color="gray.800">
-                            Pedido #{(selectedItem as SearchOrder).id}
+                          <Text fontSize={{ base: 'lg', md: 'xl' }} fontWeight="bold" color="gray.800">
+                            Pedido #{(selectedItem as SearchOrder).id.slice(0, 8)}...
                           </Text>
-                          <Badge
-                            colorScheme={getOrderStatusColor((selectedItem as SearchOrder).status)}
-                            fontSize="md"
-                            px={3}
-                            py={1}
-                            mt={2}
-                          >
-                            {(selectedItem as SearchOrder).status || 'Pendiente'}
-                          </Badge>
+                          <HStack justify="center" spacing={2} mt={2} flexWrap="wrap">
+                            <Badge
+                              colorScheme={getOrderStatusColor((selectedItem as SearchOrder).order_status)}
+                              fontSize={{ base: 'sm', md: 'md' }}
+                              px={2}
+                              py={1}
+                            >
+                              {(selectedItem as SearchOrder).order_status || 'Pendiente'}
+                            </Badge>
+                            <Badge
+                              colorScheme={(selectedItem as SearchOrder).payment_status === 'paid' ? 'green' : 'orange'}
+                              fontSize={{ base: 'sm', md: 'md' }}
+                              px={2}
+                              py={1}
+                            >
+                              {(selectedItem as SearchOrder).payment_status === 'paid' ? 'Pagado' : 'Pendiente'}
+                            </Badge>
+                          </HStack>
                         </Box>
 
-                        <Text fontWeight="bold" color="gray.700" fontSize="lg">Información del Pedido</Text>
+                        <Text fontWeight="bold" color="gray.700" fontSize={{ base: 'md', md: 'lg' }}>Cliente</Text>
 
-                        <Box bg="white" p={4} borderRadius="md" boxShadow="sm">
+                        <Box bg="white" p={{ base: 3, md: 4 }} borderRadius="md" boxShadow="sm">
                           <VStack align="stretch" spacing={3}>
-                            <HStack justify="space-between">
+                            <Flex justify="space-between" flexWrap="wrap" gap={1}>
                               <HStack spacing={2}>
-                                <Icon as={FiUser} color="gray.500" />
-                                <Text color="gray.600">Cliente:</Text>
+                                <Icon as={FiUser} color="gray.500" boxSize={4} />
+                                <Text color="gray.600" fontSize={{ base: 'sm', md: 'md' }}>Nombre:</Text>
                               </HStack>
-                              <Text fontWeight="medium">{(selectedItem as SearchOrder).customer_name || 'No especificado'}</Text>
-                            </HStack>
+                              <Text fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>{(selectedItem as SearchOrder).client_name || 'N/A'}</Text>
+                            </Flex>
                             <Divider />
-                            <HStack justify="space-between">
+                            <Flex justify="space-between" flexWrap="wrap" gap={1}>
                               <HStack spacing={2}>
-                                <Icon as={FiDollarSign} color="green.500" />
-                                <Text color="gray.600">Total:</Text>
+                                <Icon as={FiHash} color="gray.500" boxSize={4} />
+                                <Text color="gray.600" fontSize={{ base: 'sm', md: 'md' }}>Teléfono:</Text>
                               </HStack>
-                              <Text fontWeight="bold" fontSize="lg" color="green.600">
-                                ${formatPrice((selectedItem as SearchOrder).total || 0)}
+                              <Text fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>{(selectedItem as SearchOrder).client_phone || 'N/A'}</Text>
+                            </Flex>
+                          </VStack>
+                        </Box>
+
+                        <Text fontWeight="bold" color="gray.700" fontSize={{ base: 'md', md: 'lg' }}>Detalles</Text>
+
+                        <Box bg="white" p={{ base: 3, md: 4 }} borderRadius="md" boxShadow="sm">
+                          <VStack align="stretch" spacing={3}>
+                            <Flex justify="space-between" align="center">
+                              <HStack spacing={2}>
+                                <Icon as={FiDollarSign} color="green.500" boxSize={4} />
+                                <Text color="gray.600" fontSize={{ base: 'sm', md: 'md' }}>Total:</Text>
+                              </HStack>
+                              <Text fontWeight="bold" fontSize={{ base: 'md', md: 'lg' }} color="green.600">
+                                ${formatPrice((selectedItem as SearchOrder).total_amount || 0)}
                               </Text>
-                            </HStack>
+                            </Flex>
                             <Divider />
-                            <HStack justify="space-between">
-                              <Text color="gray.600">Fecha:</Text>
-                              <Text fontWeight="medium">
+                            <Flex justify="space-between">
+                              <Text color="gray.600" fontSize={{ base: 'sm', md: 'md' }}>Origen:</Text>
+                              <Badge colorScheme="purple">{(selectedItem as SearchOrder).source || 'N/A'}</Badge>
+                            </Flex>
+                            <Divider />
+                            <Flex justify="space-between" flexWrap="wrap" gap={1}>
+                              <Text color="gray.600" fontSize={{ base: 'sm', md: 'md' }}>Fecha:</Text>
+                              <Text fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                                 {(selectedItem as SearchOrder).created_at
-                                  ? new Date((selectedItem as SearchOrder).created_at).toLocaleDateString()
+                                  ? new Date((selectedItem as SearchOrder).created_at).toLocaleString('es-CO')
                                   : 'N/A'}
                               </Text>
-                            </HStack>
+                            </Flex>
                           </VStack>
                         </Box>
 
                         <Button
                           colorScheme="blue"
+                          size={{ base: 'sm', md: 'md' }}
                           onClick={() => {
                             closeSearchModal();
                             navigate('/orders');

@@ -52,10 +52,13 @@ module.exports = {
     updateProduct: async (req, res) => {
         try {
             const { id } = req.params;
+            console.log('UPDATE /products/:id - ID:', id);
+            console.log('UPDATE /products/:id - Body:', JSON.stringify(req.body, null, 2));
             const product = await productsService.updateProduct(id, req.body);
             if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
             res.json(product);
         } catch (error) {
+            console.error('ERROR updateProduct:', error);
             res.status(500).json({ success: false, error: error.message });
         }
     },

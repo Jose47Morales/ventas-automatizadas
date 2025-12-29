@@ -1,15 +1,29 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
+import {
+  handleAPIError,
+  ErrorCodes,
+  shouldShowError,
+} from './errorHandler';
 
-// URL base del backend (cambiar según tu configuración)
+// URL base del backend
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backend-empty-frog-4217.fly.dev';
+
+// Configuración de timeouts
+const REQUEST_TIMEOUT = 30000; // 30 segundos
 
 // Crear instancia de axios con configuración base
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: REQUEST_TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },
+  // Configuración CORS - permite enviar cookies/credentials
+  withCredentials: false, // Cambiar a true si el backend usa cookies
 });
+
+// Exportar la URL base para uso en otros lugares
+export const getBaseURL = () => API_BASE_URL;
 
 // Variable para evitar múltiples refresh simultáneos
 let isRefreshing = false;
@@ -52,8 +66,8 @@ api.interceptors.response.use(
   (response) => {
     return response;
   },
-  async (error) => {
-    const originalRequest = error.config;
+  async (error: AxiosError) => {
+    const originalRequest = error.config as any;
 
     // Si el token expiró (401) y no es una petición de refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
@@ -76,9 +90,7 @@ api.interceptors.response.use(
 
       if (!refreshToken) {
         // No hay refresh token, limpiar y redirigir
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
+        clearAuthData();
         window.location.href = '/login';
         return Promise.reject(error);
       }
@@ -104,9 +116,7 @@ api.interceptors.response.use(
         processQueue(refreshError, null);
 
         // Refresh falló, limpiar y redirigir
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
+        clearAuthData();
         window.location.href = '/login';
 
         return Promise.reject(refreshError);
@@ -115,9 +125,24 @@ api.interceptors.response.use(
       }
     }
 
+    // Manejar error globalmente (mostrar toast si corresponde)
+    const parsedError = handleAPIError(error, shouldShowError(
+      error.response?.status === 401 ? ErrorCodes.UNAUTHORIZED : ErrorCodes.UNKNOWN_ERROR
+    ));
+
+    // Adjuntar el error parseado al error original para uso en componentes
+    (error as any).parsedError = parsedError;
+
     return Promise.reject(error);
   }
 );
+
+// Función auxiliar para limpiar datos de autenticación
+const clearAuthData = () => {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+};
 
 // ============================================
 // AUTENTICACIÓN
@@ -247,8 +272,8 @@ export const productsAPI = {
       url_imagen: null,
       nota: productData.nota || null,
       tipo_producto: 'producto',
-      imagenes: null,
-      videos: null,
+      imagenes: [],
+      videos: [],
       realizar_pedido_solo_existencia: false,
       vender_solo_existencia: false,
     };
@@ -315,8 +340,8 @@ export const productsAPI = {
       url_imagen: null,
       nota: productData.nota || null,
       tipo_producto: 'producto',
-      imagenes: null,
-      videos: null,
+      imagenes: [],
+      videos: [],
       realizar_pedido_solo_existencia: false,
       vender_solo_existencia: false,
     };

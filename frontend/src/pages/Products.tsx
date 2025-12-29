@@ -33,10 +33,21 @@ import {
   Icon,
   Spinner,
   Center,
+  useBreakpointValue,
+  Stack,
+  SimpleGrid,
 } from '@chakra-ui/react';
 import { SearchIcon, ChevronDownIcon } from '@chakra-ui/icons';
 import { FiEdit2, FiPlus, FiPackage, FiSave, FiX, FiTrash2, FiChevronLeft, FiChevronRight, FiChevronsLeft, FiChevronsRight } from 'react-icons/fi';
 import { productsAPI } from '../services/api';
+
+// Función para formatear precio en formato colombiano (50.000)
+const formatPrice = (price: number): string => {
+  return price.toLocaleString('es-CO', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+};
 
 // Interface para los productos de la API
 interface APIProduct {
@@ -129,6 +140,13 @@ function Products() {
 
   // Toast para notificaciones
   const toast = useToast();
+
+  // Responsive values
+  const isMobile = useBreakpointValue({ base: true, md: false });
+  const isTablet = useBreakpointValue({ base: true, lg: false });
+  const buttonSize = useBreakpointValue({ base: 'sm', md: 'md' });
+  const headingSize = useBreakpointValue({ base: 'md', md: 'lg' });
+  const modalWidth = useBreakpointValue({ base: '95%', md: '90%', lg: '600px' });
 
   // Cargar productos desde la API
   useEffect(() => {
@@ -415,21 +433,21 @@ function Products() {
       // Llamar a la API para actualizar el producto con todos los campos correctos
       await productsAPI.update(editingProduct.id, {
         nombre: editingProduct.nombre,
-        referencia: editingProduct.referencia,
-        codigo_barras: editingProduct.codigo_barras,
-        categoria: editingProduct.categoria || 'Sin categoría',
-        marca: editingProduct.marca || '',
-        precioventa_con_impuesto: editingProduct.precioventa_con_impuesto,
-        precio_venta_base: editingProduct.precio_venta_base || editingProduct.precioventa_con_impuesto,
-        precio_compra: editingProduct.precio_compra,
-        costo: editingProduct.costo,
-        existencias: editingProduct.existencias,
-        stock_minimo: editingProduct.stock_minimo,
-        descuento_maximo_ps: editingProduct.descuento_maximo_ps,
-        impuesto: editingProduct.impuesto,
-        ubicacion: editingProduct.ubicacion,
-        proveedor: editingProduct.proveedor,
-        nota: editingProduct.nota,
+        referencia: editingProduct.referencia || undefined,
+        codigo_barras: editingProduct.codigo_barras || undefined,
+        categoria: editingProduct.categoria || undefined,
+        marca: editingProduct.marca || undefined,
+        precioventa_con_impuesto: editingProduct.precioventa_con_impuesto || 0,
+        precio_venta_base: editingProduct.precio_venta_base || editingProduct.precioventa_con_impuesto || 0,
+        precio_compra: editingProduct.precio_compra || 0,
+        costo: editingProduct.costo || 0,
+        existencias: editingProduct.existencias || 0,
+        stock_minimo: editingProduct.stock_minimo || 1,
+        descuento_maximo_ps: editingProduct.descuento_maximo_ps || 0,
+        impuesto: editingProduct.impuesto || 0,
+        ubicacion: editingProduct.ubicacion || undefined,
+        proveedor: editingProduct.proveedor || undefined,
+        nota: editingProduct.nota || undefined,
       });
 
       toast({
@@ -482,23 +500,30 @@ function Products() {
   return (
     <Box>
       {/* Encabezado */}
-      <Flex justify="space-between" align="center" mb={6}>
-        <Heading size="lg" color="gray.800">
+      <Flex
+        justify="space-between"
+        align={{ base: 'stretch', sm: 'center' }}
+        direction={{ base: 'column', sm: 'row' }}
+        gap={3}
+        mb={6}
+      >
+        <Heading size={headingSize} color="gray.800">
           Panel de Productos
         </Heading>
         <Button
           leftIcon={<FiPlus />}
           colorScheme="purple"
-          size="md"
+          size={buttonSize}
           onClick={handleOpenAddModal}
+          w={{ base: '100%', sm: 'auto' }}
         >
           Agregar Producto
         </Button>
       </Flex>
 
       {/* Barra de búsqueda y filtros */}
-      <Box bg="purple.50" p={6} borderRadius="lg" boxShadow="sm" mb={6}>
-        <Flex gap={4} align="center">
+      <Box bg="purple.50" p={{ base: 4, md: 6 }} borderRadius="lg" boxShadow="sm" mb={6}>
+        <Stack direction={{ base: 'column', md: 'row' }} gap={4} align="stretch">
           {/* Buscador */}
           <InputGroup flex={1}>
             <InputLeftElement pointerEvents="none">
@@ -519,11 +544,12 @@ function Products() {
               as={Button}
               rightIcon={<ChevronDownIcon />}
               variant="outline"
-              minW="200px"
+              w={{ base: '100%', md: '200px' }}
+              textAlign="left"
             >
-              {selectedCategory}
+              <Text isTruncated>{selectedCategory}</Text>
             </MenuButton>
-            <MenuList>
+            <MenuList maxH="300px" overflowY="auto">
               {categories.map((category) => (
                 <MenuItem
                   key={category}
@@ -534,7 +560,7 @@ function Products() {
               ))}
             </MenuList>
           </Menu>
-        </Flex>
+        </Stack>
 
         {/* Contador de resultados */}
         <Text mt={4} fontSize="sm" color="gray.600">
@@ -542,115 +568,206 @@ function Products() {
         </Text>
       </Box>
 
-      {/* Tabla de productos */}
-      <Box bg="purple.50" borderRadius="lg" boxShadow="sm" overflow="hidden">
-        <Table variant="simple">
-          <Thead bg="gray.50">
-            <Tr>
-              <Th>Producto</Th>
-              <Th>Categoría</Th>
-              <Th>Precio Unitario</Th>
-              <Th>Cant. Mínima</Th>
-              <Th>Stock</Th>
-              <Th>Acciones</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {paginatedProducts.length > 0 ? (
-              paginatedProducts.map((product) => (
-                <Tr key={product.id}>
-                  {/* Producto con imagen */}
-                  <Td>
-                    <HStack spacing={3}>
-                      <Avatar
-                        size="sm"
-                        name={product.name}
-                        bg="gray.200"
-                        icon={
-                          <Text fontSize="xl">{product.image}</Text>
-                        }
-                      />
-                      <Text fontWeight="medium" color="gray.700">
+      {/* Productos - Tabla en desktop, Tarjetas en móvil */}
+      {isMobile ? (
+        /* Vista de tarjetas para móvil */
+        <VStack spacing={3} align="stretch">
+          {paginatedProducts.length > 0 ? (
+            paginatedProducts.map((product) => (
+              <Box
+                key={product.id}
+                bg="white"
+                p={4}
+                borderRadius="lg"
+                boxShadow="sm"
+                borderLeft="4px"
+                borderColor="purple.500"
+              >
+                <Flex justify="space-between" align="start" mb={3}>
+                  <HStack spacing={3}>
+                    <Avatar
+                      size="sm"
+                      name={product.name}
+                      bg="gray.200"
+                      icon={<Text fontSize="xl">{product.image}</Text>}
+                    />
+                    <VStack align="start" spacing={0}>
+                      <Text fontWeight="medium" color="gray.800" fontSize="sm" noOfLines={2}>
                         {product.name}
                       </Text>
-                    </HStack>
-                  </Td>
+                      <Badge colorScheme="blue" fontSize="xs">
+                        {product.category}
+                      </Badge>
+                    </VStack>
+                  </HStack>
+                  <HStack spacing={1}>
+                    <IconButton
+                      aria-label="Editar"
+                      icon={<FiEdit2 />}
+                      size="sm"
+                      variant="ghost"
+                      colorScheme="blue"
+                      onClick={() => handleEditProduct(product)}
+                    />
+                    <IconButton
+                      aria-label="Eliminar"
+                      icon={<FiTrash2 />}
+                      size="sm"
+                      variant="ghost"
+                      colorScheme="red"
+                      onClick={() => handleDeleteProduct(product)}
+                    />
+                  </HStack>
+                </Flex>
 
-                  {/* Categoría */}
-                  <Td>
-                    <Badge colorScheme="blue" fontSize="sm" px={2} py={1}>
-                      {product.category}
-                    </Badge>
-                  </Td>
-
-                  {/* Precio */}
-                  <Td fontWeight="semibold" color="gray.800">
-                    ${product.price.toFixed(2)}
-                  </Td>
-
-                  {/* Cantidad mínima */}
-                  <Td color="gray.600">{product.minQuantity} uds</Td>
-
-                  {/* Stock */}
-                  <Td>
-                    <HStack spacing={2}>
-                      <Text fontWeight="medium" color="gray.800">
+                <SimpleGrid columns={3} spacing={2}>
+                  <Box>
+                    <Text fontSize="xs" color="gray.500">Precio</Text>
+                    <Text fontWeight="bold" color="gray.800" fontSize="sm">
+                      ${formatPrice(product.price)}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="gray.500">Mín.</Text>
+                    <Text fontWeight="medium" color="gray.600" fontSize="sm">
+                      {product.minQuantity} uds
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="gray.500">Stock</Text>
+                    <HStack spacing={1}>
+                      <Text fontWeight="medium" color="gray.800" fontSize="sm">
                         {product.stock}
                       </Text>
-                      <Badge
-                        colorScheme={getStockColor(product.stock)}
-                        fontSize="xs"
-                        px={2}
-                        py={1}
-                      >
+                      <Badge colorScheme={getStockColor(product.stock)} fontSize="xs">
                         {getStockLabel(product.stock)}
                       </Badge>
                     </HStack>
-                  </Td>
+                  </Box>
+                </SimpleGrid>
+              </Box>
+            ))
+          ) : (
+            <Box p={8} textAlign="center" bg="purple.50" borderRadius="lg">
+              <Icon as={FiPackage} color="gray.300" boxSize={12} mb={4} />
+              <Text color="gray.500" fontSize="lg">No se encontraron productos</Text>
+              <Text color="gray.400" fontSize="sm" mt={2}>Intenta buscar con otros términos</Text>
+            </Box>
+          )}
+        </VStack>
+      ) : (
+        /* Vista de tabla para desktop */
+        <Box bg="purple.50" borderRadius="lg" boxShadow="sm" overflow="hidden" overflowX="auto">
+          <Table variant="simple" size={isTablet ? 'sm' : 'md'}>
+            <Thead bg="gray.50">
+              <Tr>
+                <Th>Producto</Th>
+                <Th>Categoría</Th>
+                <Th>Precio Unitario</Th>
+                <Th display={{ base: 'none', lg: 'table-cell' }}>Cant. Mínima</Th>
+                <Th>Stock</Th>
+                <Th>Acciones</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {paginatedProducts.length > 0 ? (
+                paginatedProducts.map((product) => (
+                  <Tr key={product.id}>
+                    {/* Producto con imagen */}
+                    <Td>
+                      <HStack spacing={3}>
+                        <Avatar
+                          size="sm"
+                          name={product.name}
+                          bg="gray.200"
+                          icon={<Text fontSize="xl">{product.image}</Text>}
+                        />
+                        <Text fontWeight="medium" color="gray.700" noOfLines={1} maxW={{ base: '120px', lg: '200px' }}>
+                          {product.name}
+                        </Text>
+                      </HStack>
+                    </Td>
 
-                  {/* Acciones */}
-                  <Td>
-                    <HStack spacing={1}>
-                      <IconButton
-                        aria-label="Editar producto"
-                        icon={<FiEdit2 />}
-                        size="sm"
-                        variant="ghost"
-                        colorScheme="blue"
-                        onClick={() => handleEditProduct(product)}
-                      />
-                      <IconButton
-                        aria-label="Eliminar producto"
-                        icon={<FiTrash2 />}
-                        size="sm"
-                        variant="ghost"
-                        colorScheme="red"
-                        onClick={() => handleDeleteProduct(product)}
-                      />
-                    </HStack>
+                    {/* Categoría */}
+                    <Td>
+                      <Badge colorScheme="blue" fontSize="sm" px={2} py={1}>
+                        {product.category}
+                      </Badge>
+                    </Td>
+
+                    {/* Precio */}
+                    <Td fontWeight="semibold" color="gray.800">
+                      ${formatPrice(product.price)}
+                    </Td>
+
+                    {/* Cantidad mínima - oculto en tablet */}
+                    <Td color="gray.600" display={{ base: 'none', lg: 'table-cell' }}>
+                      {product.minQuantity} uds
+                    </Td>
+
+                    {/* Stock */}
+                    <Td>
+                      <HStack spacing={2}>
+                        <Text fontWeight="medium" color="gray.800">
+                          {product.stock}
+                        </Text>
+                        <Badge colorScheme={getStockColor(product.stock)} fontSize="xs" px={2} py={1}>
+                          {getStockLabel(product.stock)}
+                        </Badge>
+                      </HStack>
+                    </Td>
+
+                    {/* Acciones */}
+                    <Td>
+                      <HStack spacing={1}>
+                        <IconButton
+                          aria-label="Editar producto"
+                          icon={<FiEdit2 />}
+                          size="sm"
+                          variant="ghost"
+                          colorScheme="blue"
+                          onClick={() => handleEditProduct(product)}
+                        />
+                        <IconButton
+                          aria-label="Eliminar producto"
+                          icon={<FiTrash2 />}
+                          size="sm"
+                          variant="ghost"
+                          colorScheme="red"
+                          onClick={() => handleDeleteProduct(product)}
+                        />
+                      </HStack>
+                    </Td>
+                  </Tr>
+                ))
+              ) : (
+                <Tr>
+                  <Td colSpan={6} textAlign="center" py={8}>
+                    <Text color="gray.500" fontSize="lg">No se encontraron productos</Text>
+                    <Text color="gray.400" fontSize="sm" mt={2}>Intenta buscar con otros términos</Text>
                   </Td>
                 </Tr>
-              ))
-            ) : (
-              <Tr>
-                <Td colSpan={7} textAlign="center" py={8}>
-                  <Text color="gray.500" fontSize="lg">
-                    No se encontraron productos
-                  </Text>
-                  <Text color="gray.400" fontSize="sm" mt={2}>
-                    Intenta buscar con otros términos
-                  </Text>
-                </Td>
-              </Tr>
-            )}
-          </Tbody>
-        </Table>
-      </Box>
+              )}
+            </Tbody>
+          </Table>
+        </Box>
+      )}
 
       {/* Controles de paginación */}
       {totalPages > 1 && (
-        <Flex justify="space-between" align="center" mt={4} p={4} bg="white" borderRadius="lg" boxShadow="sm">
-          <HStack spacing={2}>
+        <Stack
+          direction={{ base: 'column', lg: 'row' }}
+          justify="space-between"
+          align={{ base: 'stretch', lg: 'center' }}
+          mt={4}
+          p={{ base: 3, md: 4 }}
+          bg="white"
+          borderRadius="lg"
+          boxShadow="sm"
+          spacing={4}
+        >
+          {/* Items per page - oculto en móvil */}
+          <HStack spacing={2} display={{ base: 'none', md: 'flex' }}>
             <Text fontSize="sm" color="gray.600">Productos por página:</Text>
             <Select
               size="sm"
@@ -668,7 +785,8 @@ function Products() {
             </Select>
           </HStack>
 
-          <HStack spacing={2}>
+          {/* Navegación de páginas */}
+          <HStack spacing={{ base: 1, md: 2 }} justify="center" flexWrap="wrap">
             <IconButton
               aria-label="Primera página"
               icon={<FiChevronsLeft />}
@@ -676,6 +794,7 @@ function Products() {
               variant="outline"
               onClick={() => setCurrentPage(1)}
               isDisabled={currentPage === 1}
+              display={{ base: 'none', sm: 'flex' }}
             />
             <IconButton
               aria-label="Página anterior"
@@ -687,16 +806,19 @@ function Products() {
             />
 
             <HStack spacing={1}>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              {Array.from({ length: Math.min(isMobile ? 3 : 5, totalPages) }, (_, i) => {
                 let pageNum;
-                if (totalPages <= 5) {
+                const visiblePages = isMobile ? 3 : 5;
+                const halfVisible = Math.floor(visiblePages / 2);
+
+                if (totalPages <= visiblePages) {
                   pageNum = i + 1;
-                } else if (currentPage <= 3) {
+                } else if (currentPage <= halfVisible + 1) {
                   pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
+                } else if (currentPage >= totalPages - halfVisible) {
+                  pageNum = totalPages - visiblePages + 1 + i;
                 } else {
-                  pageNum = currentPage - 2 + i;
+                  pageNum = currentPage - halfVisible + i;
                 }
                 return (
                   <Button
@@ -705,6 +827,8 @@ function Products() {
                     variant={currentPage === pageNum ? 'solid' : 'outline'}
                     colorScheme={currentPage === pageNum ? 'purple' : 'gray'}
                     onClick={() => setCurrentPage(pageNum)}
+                    minW={{ base: '32px', md: '40px' }}
+                    px={{ base: 2, md: 3 }}
                   >
                     {pageNum}
                   </Button>
@@ -727,13 +851,15 @@ function Products() {
               variant="outline"
               onClick={() => setCurrentPage(totalPages)}
               isDisabled={currentPage === totalPages}
+              display={{ base: 'none', sm: 'flex' }}
             />
           </HStack>
 
-          <Text fontSize="sm" color="gray.600">
+          {/* Info de página */}
+          <Text fontSize="sm" color="gray.600" textAlign={{ base: 'center', lg: 'right' }}>
             Página {currentPage} de {totalPages}
           </Text>
-        </Flex>
+        </Stack>
       )}
 
       {/* Información adicional */}
@@ -757,23 +883,24 @@ function Products() {
           display="flex"
           alignItems="center"
           justifyContent="center"
+          p={{ base: 2, md: 4 }}
           onClick={handleCloseEditModal}
         >
           <Box
             bg="white"
             borderRadius="xl"
-            maxW="600px"
-            w="90%"
-            maxH="90vh"
+            maxW={modalWidth}
+            w="100%"
+            maxH={{ base: '95vh', md: '90vh' }}
             overflow="auto"
             boxShadow="2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <Box bg="purple.500" color="white" p={4} borderTopRadius="xl" position="relative">
+            <Box bg="purple.500" color="white" p={{ base: 3, md: 4 }} borderTopRadius="xl" position="relative">
               <HStack spacing={3}>
                 <Icon as={FiPackage} boxSize={5} />
-                <Text fontSize="lg" fontWeight="bold">Editar Producto</Text>
+                <Text fontSize={{ base: 'md', md: 'lg' }} fontWeight="bold">Editar Producto</Text>
               </HStack>
               <IconButton
                 aria-label="Cerrar"
@@ -790,66 +917,71 @@ function Products() {
             </Box>
 
             {/* Body - Formulario */}
-            <Box p={6}>
+            <Box p={{ base: 4, md: 6 }}>
               <VStack spacing={4} align="stretch">
                 {/* Nombre del producto */}
                 <FormControl isRequired>
-                  <FormLabel color="gray.700" fontWeight="medium">
+                  <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                     Nombre del Producto
                   </FormLabel>
                   <Input
                     value={editingProduct.nombre}
                     onChange={(e) => handleFieldChange('nombre', e.target.value)}
                     placeholder="Nombre del producto"
+                    size={{ base: 'sm', md: 'md' }}
                   />
                 </FormControl>
 
                 {/* Referencia y Código de barras */}
-                <HStack spacing={4}>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Referencia
                     </FormLabel>
                     <Input
                       value={editingProduct.referencia}
                       onChange={(e) => handleFieldChange('referencia', e.target.value)}
                       placeholder="Ej: REF-001"
+                      size={{ base: 'sm', md: 'md' }}
                     />
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Código de Barras
                     </FormLabel>
                     <Input
                       value={editingProduct.codigo_barras}
                       onChange={(e) => handleFieldChange('codigo_barras', e.target.value)}
                       placeholder="Ej: 7701234567890"
+                      size={{ base: 'sm', md: 'md' }}
                     />
                   </FormControl>
-                </HStack>
+                </SimpleGrid>
 
                 {/* Marca y Categoría */}
-                <HStack spacing={4}>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Marca
                     </FormLabel>
                     <Input
                       value={editingProduct.marca}
                       onChange={(e) => handleFieldChange('marca', e.target.value)}
                       placeholder="Ej: Apple, Samsung"
+                      size={{ base: 'sm', md: 'md' }}
                     />
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Categoría
                     </FormLabel>
                     <Select
                       value={editingProduct.categoria}
                       onChange={(e) => handleFieldChange('categoria', e.target.value)}
                       placeholder="Seleccionar categoría"
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       {categories.filter(c => c !== 'Todas las categorías').map((cat) => (
                         <option key={cat} value={cat}>
@@ -858,15 +990,15 @@ function Products() {
                       ))}
                     </Select>
                   </FormControl>
-                </HStack>
+                </SimpleGrid>
 
                 <Divider />
-                <Text fontWeight="bold" color="gray.700">Precios</Text>
+                <Text fontWeight="bold" color="gray.700" fontSize={{ base: 'sm', md: 'md' }}>Precios</Text>
 
                 {/* Precio Venta y Precio Base */}
-                <HStack spacing={4}>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
                   <FormControl isRequired>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Precio Venta (con IVA)
                     </FormLabel>
                     <NumberInput
@@ -874,13 +1006,14 @@ function Products() {
                       onChange={(_, value) => handleFieldChange('precioventa_con_impuesto', value || 0)}
                       min={0}
                       precision={2}
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       <NumberInputField placeholder="0.00" />
                     </NumberInput>
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Precio Base (sin IVA)
                     </FormLabel>
                     <NumberInput
@@ -888,16 +1021,17 @@ function Products() {
                       onChange={(_, value) => handleFieldChange('precio_venta_base', value || 0)}
                       min={0}
                       precision={2}
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       <NumberInputField placeholder="0.00" />
                     </NumberInput>
                   </FormControl>
-                </HStack>
+                </SimpleGrid>
 
                 {/* Precio Compra y Costo */}
-                <HStack spacing={4}>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Precio Compra
                     </FormLabel>
                     <NumberInput
@@ -905,13 +1039,14 @@ function Products() {
                       onChange={(_, value) => handleFieldChange('precio_compra', value || 0)}
                       min={0}
                       precision={2}
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       <NumberInputField placeholder="0.00" />
                     </NumberInput>
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Costo
                     </FormLabel>
                     <NumberInput
@@ -919,16 +1054,17 @@ function Products() {
                       onChange={(_, value) => handleFieldChange('costo', value || 0)}
                       min={0}
                       precision={2}
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       <NumberInputField placeholder="0.00" />
                     </NumberInput>
                   </FormControl>
-                </HStack>
+                </SimpleGrid>
 
                 {/* Impuesto y Descuento */}
-                <HStack spacing={4}>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Impuesto (%)
                     </FormLabel>
                     <NumberInput
@@ -936,13 +1072,14 @@ function Products() {
                       onChange={(_, value) => handleFieldChange('impuesto', value || 0)}
                       min={0}
                       max={100}
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       <NumberInputField placeholder="19" />
                     </NumberInput>
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Descuento Máximo (%)
                     </FormLabel>
                     <NumberInput
@@ -950,99 +1087,107 @@ function Products() {
                       onChange={(_, value) => handleFieldChange('descuento_maximo_ps', value || 0)}
                       min={0}
                       max={100}
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       <NumberInputField placeholder="0" />
                     </NumberInput>
                   </FormControl>
-                </HStack>
+                </SimpleGrid>
 
                 <Divider />
-                <Text fontWeight="bold" color="gray.700">Inventario</Text>
+                <Text fontWeight="bold" color="gray.700" fontSize={{ base: 'sm', md: 'md' }}>Inventario</Text>
 
                 {/* Stock y Stock Mínimo */}
-                <HStack spacing={4}>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
                   <FormControl isRequired>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Existencias
                     </FormLabel>
                     <NumberInput
                       value={editingProduct.existencias}
                       onChange={(_, value) => handleFieldChange('existencias', value || 0)}
                       min={0}
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       <NumberInputField placeholder="0" />
                     </NumberInput>
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Stock Mínimo (Alerta)
                     </FormLabel>
                     <NumberInput
                       value={editingProduct.stock_minimo}
                       onChange={(_, value) => handleFieldChange('stock_minimo', value || 1)}
                       min={1}
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       <NumberInputField placeholder="1" />
                     </NumberInput>
                   </FormControl>
-                </HStack>
+                </SimpleGrid>
 
                 {/* Ubicación y Proveedor */}
-                <HStack spacing={4}>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Ubicación
                     </FormLabel>
                     <Input
                       value={editingProduct.ubicacion}
                       onChange={(e) => handleFieldChange('ubicacion', e.target.value)}
                       placeholder="Ej: Bodega A, Estante 3"
+                      size={{ base: 'sm', md: 'md' }}
                     />
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Proveedor
                     </FormLabel>
                     <Input
                       value={editingProduct.proveedor}
                       onChange={(e) => handleFieldChange('proveedor', e.target.value)}
                       placeholder="Nombre del proveedor"
+                      size={{ base: 'sm', md: 'md' }}
                     />
                   </FormControl>
-                </HStack>
+                </SimpleGrid>
 
                 {/* Nota */}
                 <FormControl>
-                  <FormLabel color="gray.700" fontWeight="medium">
+                  <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                     Notas
                   </FormLabel>
                   <Input
                     value={editingProduct.nota}
                     onChange={(e) => handleFieldChange('nota', e.target.value)}
                     placeholder="Notas adicionales del producto"
+                    size={{ base: 'sm', md: 'md' }}
                   />
                 </FormControl>
 
                 {/* Vista previa del precio con descuento */}
                 {editingProduct.precioventa_con_impuesto > 0 && (
-                  <Box bg="purple.50" p={4} borderRadius="md" borderLeft="4px" borderColor="purple.500">
+                  <Box bg="purple.50" p={{ base: 3, md: 4 }} borderRadius="md" borderLeft="4px" borderColor="purple.500">
                     <VStack align="start" spacing={2}>
                       <Text fontSize="sm" color="purple.700" fontWeight="medium">
                         Vista previa:
                       </Text>
-                      <HStack justify="space-between" w="100%">
-                        <Text color="gray.700">{editingProduct.nombre || 'Nombre del producto'}</Text>
-                        <Badge colorScheme="purple" fontSize="md" px={3} py={1}>
-                          ${editingProduct.precioventa_con_impuesto.toFixed(2)}
+                      <Flex justify="space-between" w="100%" direction={{ base: 'column', sm: 'row' }} gap={2}>
+                        <Text color="gray.700" fontSize={{ base: 'sm', md: 'md' }} noOfLines={2}>
+                          {editingProduct.nombre || 'Nombre del producto'}
+                        </Text>
+                        <Badge colorScheme="purple" fontSize={{ base: 'sm', md: 'md' }} px={3} py={1}>
+                          ${formatPrice(editingProduct.precioventa_con_impuesto)}
                         </Badge>
-                      </HStack>
+                      </Flex>
                       {editingProduct.descuento_maximo_ps > 0 && (
-                        <HStack>
+                        <HStack flexWrap="wrap">
                           <Text fontSize="sm" color="gray.500">Con descuento máximo:</Text>
                           <Text fontSize="sm" fontWeight="bold" color="green.600">
-                            ${(editingProduct.precioventa_con_impuesto * (1 - editingProduct.descuento_maximo_ps / 100)).toFixed(2)}
+                            ${formatPrice(editingProduct.precioventa_con_impuesto * (1 - editingProduct.descuento_maximo_ps / 100))}
                           </Text>
                         </HStack>
                       )}
@@ -1053,16 +1198,18 @@ function Products() {
             </Box>
 
             {/* Footer */}
-            <Box p={4} borderTop="1px" borderColor="gray.200" bg="gray.50">
-              <HStack justify="space-between">
-                <Text fontSize="sm" color="gray.500">
+            <Box p={{ base: 3, md: 4 }} borderTop="1px" borderColor="gray.200" bg="gray.50">
+              <Stack direction={{ base: 'column', sm: 'row' }} justify="space-between" align={{ base: 'stretch', sm: 'center' }} spacing={3}>
+                <Text fontSize="sm" color="gray.500" display={{ base: 'none', sm: 'block' }}>
                   * Campos requeridos
                 </Text>
-                <HStack spacing={3}>
+                <Stack direction={{ base: 'column-reverse', sm: 'row' }} spacing={3} w={{ base: '100%', sm: 'auto' }}>
                   <Button
                     variant="ghost"
                     onClick={handleCloseEditModal}
                     leftIcon={<FiX />}
+                    w={{ base: '100%', sm: 'auto' }}
+                    size={{ base: 'sm', md: 'md' }}
                   >
                     Cancelar
                   </Button>
@@ -1071,11 +1218,13 @@ function Products() {
                     onClick={handleSaveProduct}
                     isLoading={isLoading}
                     leftIcon={<FiSave />}
+                    w={{ base: '100%', sm: 'auto' }}
+                    size={{ base: 'sm', md: 'md' }}
                   >
                     Guardar Cambios
                   </Button>
-                </HStack>
-              </HStack>
+                </Stack>
+              </Stack>
             </Box>
           </Box>
         </Box>
@@ -1094,23 +1243,24 @@ function Products() {
           display="flex"
           alignItems="center"
           justifyContent="center"
+          p={{ base: 2, md: 4 }}
           onClick={handleCloseAddModal}
         >
           <Box
             bg="white"
             borderRadius="xl"
-            maxW="600px"
-            w="90%"
-            maxH="90vh"
+            maxW={modalWidth}
+            w="100%"
+            maxH={{ base: '95vh', md: '90vh' }}
             overflow="auto"
             boxShadow="2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <Box bg="purple.500" color="white" p={4} borderTopRadius="xl" position="relative">
+            <Box bg="purple.500" color="white" p={{ base: 3, md: 4 }} borderTopRadius="xl" position="relative">
               <HStack spacing={3}>
                 <Icon as={FiPlus} boxSize={5} />
-                <Text fontSize="lg" fontWeight="bold">Agregar Nuevo Producto</Text>
+                <Text fontSize={{ base: 'md', md: 'lg' }} fontWeight="bold">Agregar Nuevo Producto</Text>
               </HStack>
               <IconButton
                 aria-label="Cerrar"
@@ -1127,66 +1277,71 @@ function Products() {
             </Box>
 
             {/* Body - Formulario */}
-            <Box p={6}>
+            <Box p={{ base: 4, md: 6 }}>
               <VStack spacing={4} align="stretch">
                 {/* Nombre del producto */}
                 <FormControl isRequired>
-                  <FormLabel color="gray.700" fontWeight="medium">
+                  <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                     Nombre del Producto
                   </FormLabel>
                   <Input
                     value={newProduct.nombre}
                     onChange={(e) => handleNewProductChange('nombre', e.target.value)}
                     placeholder="Ej: iPhone 15 Pro Max"
+                    size={{ base: 'sm', md: 'md' }}
                   />
                 </FormControl>
 
                 {/* Referencia y Código de barras */}
-                <HStack spacing={4}>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Referencia
                     </FormLabel>
                     <Input
                       value={newProduct.referencia}
                       onChange={(e) => handleNewProductChange('referencia', e.target.value)}
                       placeholder="Ej: REF-001"
+                      size={{ base: 'sm', md: 'md' }}
                     />
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Código de Barras
                     </FormLabel>
                     <Input
                       value={newProduct.codigo_barras}
                       onChange={(e) => handleNewProductChange('codigo_barras', e.target.value)}
                       placeholder="Ej: 7701234567890"
+                      size={{ base: 'sm', md: 'md' }}
                     />
                   </FormControl>
-                </HStack>
+                </SimpleGrid>
 
                 {/* Marca y Categoría */}
-                <HStack spacing={4}>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Marca
                     </FormLabel>
                     <Input
                       value={newProduct.marca}
                       onChange={(e) => handleNewProductChange('marca', e.target.value)}
                       placeholder="Ej: Apple, Samsung"
+                      size={{ base: 'sm', md: 'md' }}
                     />
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Categoría
                     </FormLabel>
                     <Select
                       value={newProduct.categoria}
                       onChange={(e) => handleNewProductChange('categoria', e.target.value)}
                       placeholder="Seleccionar categoría"
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       {categories.filter(c => c !== 'Todas las categorías').map((cat) => (
                         <option key={cat} value={cat}>
@@ -1195,15 +1350,15 @@ function Products() {
                       ))}
                     </Select>
                   </FormControl>
-                </HStack>
+                </SimpleGrid>
 
                 <Divider />
-                <Text fontWeight="bold" color="gray.700">Precios</Text>
+                <Text fontWeight="bold" color="gray.700" fontSize={{ base: 'sm', md: 'md' }}>Precios</Text>
 
                 {/* Precio Venta y Precio Base */}
-                <HStack spacing={4}>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
                   <FormControl isRequired>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Precio Venta (con IVA)
                     </FormLabel>
                     <NumberInput
@@ -1211,13 +1366,14 @@ function Products() {
                       onChange={(_, value) => handleNewProductChange('precioventa_con_impuesto', value || 0)}
                       min={0}
                       precision={2}
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       <NumberInputField placeholder="0.00" />
                     </NumberInput>
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Precio Base (sin IVA)
                     </FormLabel>
                     <NumberInput
@@ -1225,16 +1381,17 @@ function Products() {
                       onChange={(_, value) => handleNewProductChange('precio_venta_base', value || 0)}
                       min={0}
                       precision={2}
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       <NumberInputField placeholder="0.00" />
                     </NumberInput>
                   </FormControl>
-                </HStack>
+                </SimpleGrid>
 
                 {/* Precio Compra y Costo */}
-                <HStack spacing={4}>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Precio Compra
                     </FormLabel>
                     <NumberInput
@@ -1242,13 +1399,14 @@ function Products() {
                       onChange={(_, value) => handleNewProductChange('precio_compra', value || 0)}
                       min={0}
                       precision={2}
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       <NumberInputField placeholder="0.00" />
                     </NumberInput>
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Costo
                     </FormLabel>
                     <NumberInput
@@ -1256,16 +1414,17 @@ function Products() {
                       onChange={(_, value) => handleNewProductChange('costo', value || 0)}
                       min={0}
                       precision={2}
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       <NumberInputField placeholder="0.00" />
                     </NumberInput>
                   </FormControl>
-                </HStack>
+                </SimpleGrid>
 
                 {/* Impuesto y Descuento */}
-                <HStack spacing={4}>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Impuesto (%)
                     </FormLabel>
                     <NumberInput
@@ -1273,13 +1432,14 @@ function Products() {
                       onChange={(_, value) => handleNewProductChange('impuesto', value || 0)}
                       min={0}
                       max={100}
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       <NumberInputField placeholder="19" />
                     </NumberInput>
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Descuento Máximo (%)
                     </FormLabel>
                     <NumberInput
@@ -1287,99 +1447,107 @@ function Products() {
                       onChange={(_, value) => handleNewProductChange('descuento_maximo_ps', value || 0)}
                       min={0}
                       max={100}
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       <NumberInputField placeholder="0" />
                     </NumberInput>
                   </FormControl>
-                </HStack>
+                </SimpleGrid>
 
                 <Divider />
-                <Text fontWeight="bold" color="gray.700">Inventario</Text>
+                <Text fontWeight="bold" color="gray.700" fontSize={{ base: 'sm', md: 'md' }}>Inventario</Text>
 
                 {/* Stock y Stock Mínimo */}
-                <HStack spacing={4}>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
                   <FormControl isRequired>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Existencias
                     </FormLabel>
                     <NumberInput
                       value={newProduct.existencias}
                       onChange={(_, value) => handleNewProductChange('existencias', value || 0)}
                       min={0}
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       <NumberInputField placeholder="0" />
                     </NumberInput>
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Stock Mínimo (Alerta)
                     </FormLabel>
                     <NumberInput
                       value={newProduct.stock_minimo}
                       onChange={(_, value) => handleNewProductChange('stock_minimo', value || 1)}
                       min={1}
+                      size={{ base: 'sm', md: 'md' }}
                     >
                       <NumberInputField placeholder="1" />
                     </NumberInput>
                   </FormControl>
-                </HStack>
+                </SimpleGrid>
 
                 {/* Ubicación y Proveedor */}
-                <HStack spacing={4}>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Ubicación
                     </FormLabel>
                     <Input
                       value={newProduct.ubicacion}
                       onChange={(e) => handleNewProductChange('ubicacion', e.target.value)}
                       placeholder="Ej: Bodega A, Estante 3"
+                      size={{ base: 'sm', md: 'md' }}
                     />
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel color="gray.700" fontWeight="medium">
+                    <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                       Proveedor
                     </FormLabel>
                     <Input
                       value={newProduct.proveedor}
                       onChange={(e) => handleNewProductChange('proveedor', e.target.value)}
                       placeholder="Nombre del proveedor"
+                      size={{ base: 'sm', md: 'md' }}
                     />
                   </FormControl>
-                </HStack>
+                </SimpleGrid>
 
                 {/* Nota */}
                 <FormControl>
-                  <FormLabel color="gray.700" fontWeight="medium">
+                  <FormLabel color="gray.700" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }}>
                     Notas
                   </FormLabel>
                   <Input
                     value={newProduct.nota}
                     onChange={(e) => handleNewProductChange('nota', e.target.value)}
                     placeholder="Notas adicionales del producto"
+                    size={{ base: 'sm', md: 'md' }}
                   />
                 </FormControl>
 
                 {/* Vista previa */}
                 {newProduct.precioventa_con_impuesto > 0 && (
-                  <Box bg="green.50" p={4} borderRadius="md" borderLeft="4px" borderColor="green.500">
+                  <Box bg="green.50" p={{ base: 3, md: 4 }} borderRadius="md" borderLeft="4px" borderColor="green.500">
                     <VStack align="start" spacing={2}>
                       <Text fontSize="sm" color="green.700" fontWeight="medium">
                         Vista previa del producto:
                       </Text>
-                      <HStack justify="space-between" w="100%">
-                        <Text color="gray.700">{newProduct.nombre || 'Nombre del producto'}</Text>
-                        <Badge colorScheme="green" fontSize="md" px={3} py={1}>
-                          ${newProduct.precioventa_con_impuesto.toFixed(2)}
+                      <Flex justify="space-between" w="100%" direction={{ base: 'column', sm: 'row' }} gap={2}>
+                        <Text color="gray.700" fontSize={{ base: 'sm', md: 'md' }} noOfLines={2}>
+                          {newProduct.nombre || 'Nombre del producto'}
+                        </Text>
+                        <Badge colorScheme="green" fontSize={{ base: 'sm', md: 'md' }} px={3} py={1}>
+                          ${formatPrice(newProduct.precioventa_con_impuesto)}
                         </Badge>
-                      </HStack>
+                      </Flex>
                       {newProduct.descuento_maximo_ps > 0 && (
-                        <HStack>
+                        <HStack flexWrap="wrap">
                           <Text fontSize="sm" color="gray.500">Con descuento máximo:</Text>
                           <Text fontSize="sm" fontWeight="bold" color="green.600">
-                            ${(newProduct.precioventa_con_impuesto * (1 - newProduct.descuento_maximo_ps / 100)).toFixed(2)}
+                            ${formatPrice(newProduct.precioventa_con_impuesto * (1 - newProduct.descuento_maximo_ps / 100))}
                           </Text>
                         </HStack>
                       )}
@@ -1390,16 +1558,18 @@ function Products() {
             </Box>
 
             {/* Footer */}
-            <Box p={4} borderTop="1px" borderColor="gray.200" bg="gray.50">
-              <HStack justify="space-between">
-                <Text fontSize="sm" color="gray.500">
+            <Box p={{ base: 3, md: 4 }} borderTop="1px" borderColor="gray.200" bg="gray.50">
+              <Stack direction={{ base: 'column', sm: 'row' }} justify="space-between" align={{ base: 'stretch', sm: 'center' }} spacing={3}>
+                <Text fontSize="sm" color="gray.500" display={{ base: 'none', sm: 'block' }}>
                   * Campos requeridos
                 </Text>
-                <HStack spacing={3}>
+                <Stack direction={{ base: 'column-reverse', sm: 'row' }} spacing={3} w={{ base: '100%', sm: 'auto' }}>
                   <Button
                     variant="ghost"
                     onClick={handleCloseAddModal}
                     leftIcon={<FiX />}
+                    w={{ base: '100%', sm: 'auto' }}
+                    size={{ base: 'sm', md: 'md' }}
                   >
                     Cancelar
                   </Button>
@@ -1408,11 +1578,13 @@ function Products() {
                     onClick={handleCreateProduct}
                     isLoading={isLoading}
                     leftIcon={<FiSave />}
+                    w={{ base: '100%', sm: 'auto' }}
+                    size={{ base: 'sm', md: 'md' }}
                   >
                     Crear Producto
                   </Button>
-                </HStack>
-              </HStack>
+                </Stack>
+              </Stack>
             </Box>
           </Box>
         </Box>
