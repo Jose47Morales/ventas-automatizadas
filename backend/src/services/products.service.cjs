@@ -99,8 +99,8 @@ module.exports = {
         return insert.rows[0];
     },
 
-    updateProduct: async (data) => {
-        const { id, nombre, referencia, codigo_barras, invima, cum, codigo_producto_dian,
+    updateProduct: async (id, data) => {
+        const { nombre, referencia, codigo_barras, invima, cum, codigo_producto_dian,
             existencias, impuesto, precioventa_con_impuesto, precio_venta_base,
             precio_venta_minimo, descuento_maximo_ps, precio_compra, precio_compraipm,
             total_impoconsumo, total_estampilla, icui, ibua, costo, stock_minimo,
