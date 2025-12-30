@@ -498,14 +498,14 @@ function Products() {
   }
 
   return (
-    <Box>
+    <Box w="100%">
       {/* Encabezado */}
       <Flex
         justify="space-between"
         align={{ base: 'stretch', sm: 'center' }}
         direction={{ base: 'column', sm: 'row' }}
         gap={3}
-        mb={6}
+        mb={4}
       >
         <Heading size={headingSize} color="gray.800">
           Panel de Productos
@@ -522,7 +522,7 @@ function Products() {
       </Flex>
 
       {/* Barra de búsqueda y filtros */}
-      <Box bg="purple.50" p={{ base: 4, md: 6 }} borderRadius="lg" boxShadow="sm" mb={6}>
+      <Box bg="purple.50" p={{ base: 3, md: 4 }} borderRadius="lg" boxShadow="sm" mb={4}>
         <Stack direction={{ base: 'column', md: 'row' }} gap={4} align="stretch">
           {/* Buscador */}
           <InputGroup flex={1}>

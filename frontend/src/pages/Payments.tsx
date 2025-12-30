@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import {
   Box,
   Flex,
-  Grid,
   Heading,
   Text,
   Table,
@@ -14,12 +13,15 @@ import {
   Badge,
   Icon,
   HStack,
+  VStack,
   Spinner,
   Center,
   Select,
   IconButton,
   Button,
   useToast,
+  useBreakpointValue,
+  SimpleGrid,
 } from '@chakra-ui/react';
 import {
   FiDollarSign,
@@ -79,35 +81,35 @@ interface StatCardProps {
 
 function StatCard({ title, value, change, isPositive, icon, iconBg }: StatCardProps) {
   return (
-    <Box bg="purple.50" p={6} borderRadius="lg" boxShadow="sm">
+    <Box bg="purple.50" p={{ base: 4, md: 5 }} borderRadius="lg" boxShadow="sm">
       <Flex justify="space-between" align="start">
-        <Box>
-          <Text fontSize="sm" color="black.600" mb={2}>
+        <Box flex={1} minW={0}>
+          <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600" mb={1}>
             {title}
           </Text>
-          <Text fontSize="2xl" fontWeight="bold" color="black.800">
+          <Text fontSize={{ base: 'lg', md: '2xl' }} fontWeight="bold" color="gray.800" noOfLines={1}>
             {value}
           </Text>
-          <HStack mt={2} spacing={1}>
+          <HStack mt={2} spacing={1} flexWrap="wrap">
             <Icon
               as={isPositive ? FiArrowUp : FiArrowDown}
               color={isPositive ? 'green.500' : 'red.500'}
-              boxSize={4}
+              boxSize={{ base: 3, md: 4 }}
             />
             <Text
-              fontSize="sm"
+              fontSize={{ base: 'xs', md: 'sm' }}
               color={isPositive ? 'green.500' : 'red.500'}
               fontWeight="medium"
             >
               {change}
             </Text>
-            <Text fontSize="sm" color="black.500">
+            <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.500" display={{ base: 'none', lg: 'inline' }}>
               vs mes anterior
             </Text>
           </HStack>
         </Box>
-        <Box bg={iconBg} p={3} borderRadius="md">
-          <Icon as={icon} boxSize={6} color="white" />
+        <Box bg={iconBg} p={{ base: 2, md: 3 }} borderRadius="md" flexShrink={0} ml={2}>
+          <Icon as={icon} boxSize={{ base: 4, md: 6 }} color="white" />
         </Box>
       </Flex>
     </Box>
@@ -125,6 +127,10 @@ function Payments() {
 
   // Toast para notificaciones
   const toast = useToast();
+
+  // Responsive values
+  const isMobile = useBreakpointValue({ base: true, md: false });
+  const headingSize = useBreakpointValue({ base: 'md', md: 'lg' });
 
   // Función para mapear estado de pago
   const mapPaymentStatus = (status: string): string => {
@@ -272,118 +278,179 @@ function Payments() {
   }
 
   return (
-    <Box>
+    <Box w="100%">
       {/* Encabezado */}
-      <Flex justify="space-between" align="center" mb={6}>
-        <Heading size="lg" color="gray.800">
+      <Flex justify="space-between" align="center" mb={4}>
+        <Heading size={headingSize} color="gray.800">
           Panel de Pagos
         </Heading>
       </Flex>
 
       {/* Tarjetas de métricas principales */}
-      <Grid templateColumns="repeat(4, 1fr)" gap={6} mb={6}>
+      <SimpleGrid columns={{ base: 2, md: 2, lg: 4 }} gap={{ base: 2, md: 4 }} mb={4}>
         {mainStats.map((stat, index) => (
           <StatCard key={index} {...stat} />
         ))}
-      </Grid>
+      </SimpleGrid>
 
       {/* Sección de Resumen Contable */}
-      <Box bg="purple.50" p={6} borderRadius="lg" boxShadow="sm" mb={6}>
-        <Heading size="md" mb={4} color="black">
+      <Box bg="purple.50" p={{ base: 3, md: 4 }} borderRadius="lg" boxShadow="sm" mb={4}>
+        <Heading size={{ base: 'sm', md: 'md' }} mb={3} color="gray.800">
           Resumen Contable
         </Heading>
-        <Grid templateColumns="repeat(3, 1fr)" gap={4}>
+        <SimpleGrid columns={{ base: 1, md: 3 }} gap={{ base: 2, md: 4 }}>
           {accountingSummary.map((item, index) => (
             <Box
               key={index}
               bg={item.bg}
-              p={4}
+              p={{ base: 3, md: 4 }}
               borderRadius="md"
               borderLeft="4px"
               borderColor={item.color}
             >
-              <Flex justify="space-between" align="center">
-                <HStack spacing={3}>
-                  <Box bg={item.color} p={2} borderRadius="md">
-                    <Icon as={item.icon} color="white" boxSize={5} />
+              <Flex justify="space-between" align="center" flexWrap={{ base: 'wrap', sm: 'nowrap' }} gap={2}>
+                <HStack spacing={{ base: 2, md: 3 }}>
+                  <Box bg={item.color} p={2} borderRadius="md" flexShrink={0}>
+                    <Icon as={item.icon} color="white" boxSize={{ base: 4, md: 5 }} />
                   </Box>
-                  <Text fontWeight="medium" color="gray.700">
+                  <Text fontWeight="medium" color="gray.700" fontSize={{ base: 'sm', md: 'md' }}>
                     {item.label}
                   </Text>
                 </HStack>
-                <Text fontSize="xl" fontWeight="bold" color="gray.800">
+                <Text fontSize={{ base: 'md', md: 'xl' }} fontWeight="bold" color="gray.800">
                   {item.value}
                 </Text>
               </Flex>
             </Box>
           ))}
-        </Grid>
+        </SimpleGrid>
       </Box>
 
       {/* Historial de Pagos */}
-      <Box bg="purple.50" borderRadius="lg" boxShadow="sm" overflow="hidden">
-        <Box p={4} borderBottom="1px" borderColor="gray.200">
-          <Text fontSize="md" fontWeight="semibold" color="gray.800">
-            Historial de Pagos - Mostrando {startIndex + 1}-{Math.min(endIndex, payments.length)} de {payments.length}
-          </Text>
-        </Box>
+      {isMobile ? (
+        /* Vista de tarjetas para móvil */
+        <VStack spacing={3} align="stretch">
+          <Box bg="purple.50" p={3} borderRadius="lg">
+            <Text fontSize="sm" fontWeight="semibold" color="gray.800">
+              Mostrando {startIndex + 1}-{Math.min(endIndex, payments.length)} de {payments.length}
+            </Text>
+          </Box>
+          {paginatedPayments.length > 0 ? (
+            paginatedPayments.map((payment) => (
+              <Box
+                key={payment.id}
+                bg="white"
+                p={4}
+                borderRadius="lg"
+                boxShadow="sm"
+                borderLeft="4px"
+                borderColor={getStatusColor(payment.status) + '.500'}
+              >
+                <Flex justify="space-between" align="start" mb={2}>
+                  <VStack align="start" spacing={0}>
+                    <Text fontWeight="bold" color="blue.600" fontSize="sm">
+                      {payment.id}
+                    </Text>
+                    <Text fontWeight="medium" color="gray.700" fontSize="sm">
+                      {payment.client}
+                    </Text>
+                  </VStack>
+                  <Badge colorScheme={getStatusColor(payment.status)} fontSize="xs">
+                    {payment.status}
+                  </Badge>
+                </Flex>
+                <Flex justify="space-between" align="center">
+                  <Text fontSize="xs" color="gray.500">{payment.date}</Text>
+                  <Text fontWeight="bold" color="gray.800">${payment.amount.toLocaleString()}</Text>
+                </Flex>
+              </Box>
+            ))
+          ) : (
+            <Box p={8} textAlign="center" bg="purple.50" borderRadius="lg">
+              <Text color="gray.500">No se encontraron pagos</Text>
+            </Box>
+          )}
+        </VStack>
+      ) : (
+        /* Vista de tabla para desktop */
+        <Box bg="purple.50" borderRadius="lg" boxShadow="sm" overflow="hidden">
+          <Box p={3} borderBottom="1px" borderColor="gray.200">
+            <Text fontSize="md" fontWeight="semibold" color="gray.800">
+              Historial de Pagos - Mostrando {startIndex + 1}-{Math.min(endIndex, payments.length)} de {payments.length}
+            </Text>
+          </Box>
 
-        <Table variant="simple">
-          <Thead bg="gray.50">
-            <Tr>
-              <Th>ID Pago</Th>
-              <Th>Orden</Th>
-              <Th>Cliente</Th>
-              <Th>Monto</Th>
-              <Th>Estado</Th>
-              <Th>Fecha</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {paginatedPayments.length > 0 ? (
-              paginatedPayments.map((payment) => (
-                <Tr key={payment.id}>
-                  <Td fontWeight="bold" color="blue.600">
-                    {payment.id}
-                  </Td>
-                  <Td fontWeight="medium" color="gray.700">
-                    {payment.order}
-                  </Td>
-                  <Td color="gray.600">{payment.client}</Td>
-                  <Td fontWeight="semibold" color="gray.800">
-                    ${payment.amount.toLocaleString()}
-                  </Td>
-                  <Td>
-                    <Badge
-                      colorScheme={getStatusColor(payment.status)}
-                      fontSize="sm"
-                      px={3}
-                      py={1}
-                      borderRadius="full"
-                    >
-                      {payment.status}
-                    </Badge>
-                  </Td>
-                  <Td color="gray.600">{payment.date}</Td>
+          <Box overflowX="auto">
+            <Table variant="simple" size="sm">
+              <Thead bg="gray.50">
+                <Tr>
+                  <Th>ID Pago</Th>
+                  <Th display={{ base: 'none', lg: 'table-cell' }}>Orden</Th>
+                  <Th>Cliente</Th>
+                  <Th>Monto</Th>
+                  <Th>Estado</Th>
+                  <Th display={{ base: 'none', lg: 'table-cell' }}>Fecha</Th>
                 </Tr>
-              ))
-            ) : (
-              <Tr>
-                <Td colSpan={6} textAlign="center" py={8}>
-                  <Text color="gray.500" fontSize="lg">
-                    No se encontraron pagos
-                  </Text>
-                </Td>
-              </Tr>
-            )}
-          </Tbody>
-        </Table>
-      </Box>
+              </Thead>
+              <Tbody>
+                {paginatedPayments.length > 0 ? (
+                  paginatedPayments.map((payment) => (
+                    <Tr key={payment.id}>
+                      <Td fontWeight="bold" color="blue.600">
+                        {payment.id}
+                      </Td>
+                      <Td fontWeight="medium" color="gray.700" display={{ base: 'none', lg: 'table-cell' }}>
+                        {payment.order}
+                      </Td>
+                      <Td color="gray.600" maxW="150px">
+                        <Text noOfLines={1}>{payment.client}</Text>
+                      </Td>
+                      <Td fontWeight="semibold" color="gray.800">
+                        ${payment.amount.toLocaleString()}
+                      </Td>
+                      <Td>
+                        <Badge
+                          colorScheme={getStatusColor(payment.status)}
+                          fontSize="xs"
+                          px={2}
+                          py={1}
+                          borderRadius="full"
+                        >
+                          {payment.status}
+                        </Badge>
+                      </Td>
+                      <Td color="gray.600" display={{ base: 'none', lg: 'table-cell' }}>{payment.date}</Td>
+                    </Tr>
+                  ))
+                ) : (
+                  <Tr>
+                    <Td colSpan={6} textAlign="center" py={8}>
+                      <Text color="gray.500" fontSize="lg">
+                        No se encontraron pagos
+                      </Text>
+                    </Td>
+                  </Tr>
+                )}
+              </Tbody>
+            </Table>
+          </Box>
+        </Box>
+      )}
 
       {/* Controles de paginación */}
       {totalPages > 1 && (
-        <Flex justify="space-between" align="center" mt={4} p={4} bg="white" borderRadius="lg" boxShadow="sm">
-          <HStack spacing={2}>
+        <Flex
+          justify="space-between"
+          align="center"
+          mt={4}
+          p={{ base: 2, md: 4 }}
+          bg="white"
+          borderRadius="lg"
+          boxShadow="sm"
+          flexWrap="wrap"
+          gap={2}
+        >
+          <HStack spacing={2} display={{ base: 'none', md: 'flex' }}>
             <Text fontSize="sm" color="gray.600">Pagos por página:</Text>
             <Select
               size="sm"
@@ -401,7 +468,7 @@ function Payments() {
             </Select>
           </HStack>
 
-          <HStack spacing={2}>
+          <HStack spacing={{ base: 1, md: 2 }}>
             <IconButton
               aria-label="Primera página"
               icon={<FiChevronsLeft />}
@@ -409,6 +476,7 @@ function Payments() {
               variant="outline"
               onClick={() => setCurrentPage(1)}
               isDisabled={currentPage === 1}
+              display={{ base: 'none', md: 'flex' }}
             />
             <IconButton
               aria-label="Página anterior"
@@ -420,16 +488,17 @@ function Payments() {
             />
 
             <HStack spacing={1}>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              {Array.from({ length: Math.min(isMobile ? 3 : 5, totalPages) }, (_, i) => {
                 let pageNum;
-                if (totalPages <= 5) {
+                const maxButtons = isMobile ? 3 : 5;
+                if (totalPages <= maxButtons) {
                   pageNum = i + 1;
-                } else if (currentPage <= 3) {
+                } else if (currentPage <= Math.ceil(maxButtons / 2)) {
                   pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
+                } else if (currentPage >= totalPages - Math.floor(maxButtons / 2)) {
+                  pageNum = totalPages - maxButtons + 1 + i;
                 } else {
-                  pageNum = currentPage - 2 + i;
+                  pageNum = currentPage - Math.floor(maxButtons / 2) + i;
                 }
                 return (
                   <Button
@@ -438,6 +507,7 @@ function Payments() {
                     variant={currentPage === pageNum ? 'solid' : 'outline'}
                     colorScheme={currentPage === pageNum ? 'purple' : 'gray'}
                     onClick={() => setCurrentPage(pageNum)}
+                    minW={{ base: '32px', md: '40px' }}
                   >
                     {pageNum}
                   </Button>
@@ -460,10 +530,11 @@ function Payments() {
               variant="outline"
               onClick={() => setCurrentPage(totalPages)}
               isDisabled={currentPage === totalPages}
+              display={{ base: 'none', md: 'flex' }}
             />
           </HStack>
 
-          <Text fontSize="sm" color="gray.600">
+          <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600">
             Página {currentPage} de {totalPages}
           </Text>
         </Flex>
@@ -471,14 +542,14 @@ function Payments() {
 
       {/* Información adicional */}
       <Box
-        mt={6}
-        p={4}
+        mt={4}
+        p={{ base: 3, md: 4 }}
         bg="green.50"
         borderRadius="md"
         borderLeft="4px"
         borderColor="green.500"
       >
-        <Text fontSize="sm" color="green.800">
+        <Text fontSize={{ base: 'xs', md: 'sm' }} color="green.800">
           Los datos de pagos se calculan automáticamente desde las órdenes registradas en el sistema.
         </Text>
       </Box>

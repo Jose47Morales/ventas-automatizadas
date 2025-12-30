@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Box,
   Flex,
@@ -50,6 +50,7 @@ import {
   FiTag,
   FiHash,
   FiBox,
+  FiSettings,
 } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import { productsAPI, ordersAPI } from '../services/api';
@@ -142,6 +143,22 @@ function Layout() {
   const [selectedItem, setSelectedItem] = useState<SearchProduct | SearchOrder | null>(null);
   const [selectedType, setSelectedType] = useState<'product' | 'order' | null>(null);
 
+  // Estados para autocompletado (sugerencias)
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [allProducts, setAllProducts] = useState<SearchProduct[]>([]);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  const searchInputRef = useRef<HTMLDivElement>(null);
+
+  // Estados para modal de notificaciones
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<{
+    recentOrders: SearchOrder[];
+    pendingPayments: SearchOrder[];
+  }>({ recentOrders: [], pendingPayments: [] });
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const notificationsRef = useRef<HTMLDivElement>(null);
+
   // Responsive values
   const isMobile = useBreakpointValue({ base: true, lg: false });
   const sidebarWidth = useBreakpointValue({ base: '100%', md: '220px', lg: '250px' });
@@ -157,17 +174,143 @@ function Layout() {
     navigate('/login');
   };
 
+  // Cargar productos al montar el componente para sugerencias
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const products = await productsAPI.getAll();
+        setAllProducts(products);
+      } catch (error) {
+        console.error('Error cargando productos para sugerencias:', error);
+      }
+    };
+    loadProducts();
+  }, []);
+
+  // Generar sugerencias cuando cambia el término de búsqueda
+  useEffect(() => {
+    if (searchTerm.trim().length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const term = searchTerm.toLowerCase();
+    const matchedSuggestions: string[] = [];
+
+    // Buscar en nombres de productos
+    allProducts.forEach((p) => {
+      if (p.nombre?.toLowerCase().includes(term) && !matchedSuggestions.includes(p.nombre)) {
+        matchedSuggestions.push(p.nombre);
+      }
+      // También buscar en categorías
+      if (p.categoria?.toLowerCase().includes(term) && !matchedSuggestions.includes(p.categoria)) {
+        matchedSuggestions.push(p.categoria);
+      }
+      // También buscar en marcas
+      if (p.marca?.toLowerCase().includes(term) && !matchedSuggestions.includes(p.marca)) {
+        matchedSuggestions.push(p.marca);
+      }
+    });
+
+    // Ordenar: primero los que empiezan con el término, luego los que lo contienen
+    matchedSuggestions.sort((a, b) => {
+      const aStarts = a.toLowerCase().startsWith(term);
+      const bStarts = b.toLowerCase().startsWith(term);
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+      return a.localeCompare(b);
+    });
+
+    setSuggestions(matchedSuggestions.slice(0, 8));
+    setShowSuggestions(matchedSuggestions.length > 0);
+    setSelectedSuggestionIndex(-1);
+  }, [searchTerm, allProducts]);
+
+  // Cerrar sugerencias al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchInputRef.current && !searchInputRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+      if (notificationsRef.current && !notificationsRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Cargar notificaciones (pedidos recientes y pagos pendientes)
+  const loadNotifications = async () => {
+    setLoadingNotifications(true);
+    try {
+      const allOrders = await ordersAPI.getAll();
+
+      // Pedidos recientes (últimos 5 pedidos creados)
+      const sortedOrders = [...allOrders].sort((a: SearchOrder, b: SearchOrder) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      const recentOrders = sortedOrders.slice(0, 5);
+
+      // Pagos pendientes (pedidos con payment_status !== 'paid')
+      const pendingPayments = allOrders.filter((o: SearchOrder) =>
+        o.payment_status !== 'paid'
+      ).slice(0, 5);
+
+      setNotifications({ recentOrders, pendingPayments });
+    } catch (error) {
+      console.error('Error cargando notificaciones:', error);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  // Abrir modal de notificaciones
+  const handleOpenNotifications = () => {
+    setShowNotifications(!showNotifications);
+    if (!showNotifications) {
+      loadNotifications();
+    }
+  };
+
+  // Seleccionar una sugerencia - abre directamente el modal con el producto
+  const handleSelectSuggestion = (suggestion: string) => {
+    setSearchTerm(suggestion);
+    setShowSuggestions(false);
+
+    // Buscar el producto que coincide exactamente con la sugerencia
+    const matchedProduct = allProducts.find(
+      (p) =>
+        p.nombre === suggestion ||
+        p.categoria === suggestion ||
+        p.marca === suggestion
+    );
+
+    if (matchedProduct) {
+      // Si encontramos un producto exacto, abrimos directamente el modal de detalles
+      setSelectedItem(matchedProduct);
+      setSelectedType('product');
+      setSearchResults({ products: [matchedProduct], orders: [] });
+      setIsSearchModalOpen(true);
+    } else {
+      // Si no hay coincidencia exacta (ej: categoría/marca), ejecutar búsqueda normal
+      setTimeout(() => handleSearch(), 100);
+    }
+  };
+
   // Función para realizar la búsqueda
   const handleSearch = useCallback(async () => {
     if (!searchTerm.trim()) return;
 
+    setShowSuggestions(false);
     setIsSearching(true);
     setIsSearchModalOpen(true);
 
     try {
       // Buscar productos
-      const allProducts = await productsAPI.getAll();
-      const filteredProducts = allProducts.filter((p: SearchProduct) =>
+      const productsData = allProducts.length > 0 ? allProducts : await productsAPI.getAll();
+      const filteredProducts = productsData.filter((p: SearchProduct) =>
         p.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.categoria?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.marca?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -208,10 +351,33 @@ function Layout() {
     }
   }, [searchTerm, toast]);
 
-  // Manejar tecla Enter en búsqueda
+  // Manejar teclas en búsqueda (Enter, flechas, Escape)
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedSuggestionIndex((prev) =>
+        prev < suggestions.length - 1 ? prev + 1 : prev
+      );
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedSuggestionIndex((prev) => (prev > 0 ? prev - 1 : -1));
+      return;
+    }
+
     if (e.key === 'Enter') {
-      handleSearch();
+      if (selectedSuggestionIndex >= 0 && suggestions[selectedSuggestionIndex]) {
+        handleSelectSuggestion(suggestions[selectedSuggestionIndex]);
+      } else {
+        handleSearch();
+      }
     }
   };
 
@@ -288,14 +454,15 @@ function Layout() {
         <Box
           w={{ base: 8, md: 10 }}
           h={{ base: 8, md: 10 }}
-          borderRadius="md"
+          borderRadius="full"
           overflow="hidden"
           flexShrink={0}
+          bg="black"
         >
           <img
             src="/logo.png"
             alt="Bodega Mayorista"
-            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         </Box>
         <Text fontSize={{ base: 'md', md: 'xl' }} fontWeight="bold" color="gray.800" noOfLines={1}>
@@ -381,33 +548,79 @@ function Layout() {
             />
           )}
 
-          {/* Barra de búsqueda */}
-          <InputGroup maxW={{ base: '100%', sm: '300px', md: '400px' }} flex={1}>
-            <InputLeftElement pointerEvents="none">
-              <SearchIcon color="gray.400" />
-            </InputLeftElement>
-            <Input
-              placeholder={isMobile ? 'Buscar...' : 'Buscar productos, pedidos, clientes...'}
-              bg="gray.50"
-              border="none"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={handleSearchKeyDown}
-              size={{ base: 'sm', md: 'md' }}
-            />
-          </InputGroup>
+          {/* Barra de búsqueda con sugerencias */}
+          <Box position="relative" maxW={{ base: '100%', sm: '300px', md: '400px' }} flex={1} ref={searchInputRef}>
+            <InputGroup>
+              <InputLeftElement pointerEvents="none">
+                <SearchIcon color="gray.400" />
+              </InputLeftElement>
+              <Input
+                placeholder={isMobile ? 'Buscar...' : 'Buscar productos, pedidos, clientes...'}
+                bg="gray.50"
+                border="none"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                size={{ base: 'sm', md: 'md' }}
+                autoComplete="off"
+              />
+            </InputGroup>
+
+            {/* Dropdown de sugerencias estilo YouTube */}
+            {showSuggestions && suggestions.length > 0 && (
+              <Box
+                position="absolute"
+                top="100%"
+                left={0}
+                right={0}
+                bg="white"
+                borderRadius="md"
+                boxShadow="lg"
+                border="1px"
+                borderColor="gray.200"
+                zIndex={9999}
+                maxH="300px"
+                overflowY="auto"
+                mt={1}
+              >
+                {suggestions.map((suggestion, index) => (
+                  <Flex
+                    key={index}
+                    px={4}
+                    py={2}
+                    cursor="pointer"
+                    bg={selectedSuggestionIndex === index ? 'gray.100' : 'white'}
+                    _hover={{ bg: 'gray.100' }}
+                    onClick={() => handleSelectSuggestion(suggestion)}
+                    align="center"
+                    gap={3}
+                  >
+                    <SearchIcon color="gray.400" boxSize={3} />
+                    <Text
+                      fontSize="sm"
+                      color="gray.700"
+                      noOfLines={1}
+                    >
+                      {suggestion}
+                    </Text>
+                  </Flex>
+                ))}
+              </Box>
+            )}
+          </Box>
 
           {/* Sección derecha del header */}
           <HStack spacing={{ base: 1, md: 4 }}>
-            {/* Notificaciones */}
-            <Box position="relative">
+            {/* Notificaciones con dropdown */}
+            <Box position="relative" ref={notificationsRef}>
               <IconButton
                 aria-label="Notificaciones"
                 icon={<BellIcon />}
                 variant="ghost"
                 fontSize={{ base: '18px', md: '20px' }}
                 size={{ base: 'sm', md: 'md' }}
-                onClick={() => navigate('/notifications')}
+                onClick={handleOpenNotifications}
               />
               <Badge
                 position="absolute"
@@ -417,10 +630,217 @@ function Layout() {
                 borderRadius="full"
                 fontSize="xs"
                 cursor="pointer"
-                onClick={() => navigate('/notifications')}
+                onClick={handleOpenNotifications}
               >
-                *
+                {notifications.pendingPayments.length || '*'}
               </Badge>
+
+              {/* Dropdown de notificaciones estilo YouTube */}
+              {showNotifications && (
+                <Box
+                  position="absolute"
+                  top="100%"
+                  right={0}
+                  w={{ base: '300px', md: '380px' }}
+                  bg="white"
+                  borderRadius="lg"
+                  boxShadow="xl"
+                  border="1px"
+                  borderColor="gray.200"
+                  zIndex={9999}
+                  mt={2}
+                  overflow="hidden"
+                >
+                  {/* Header del dropdown */}
+                  <Flex
+                    justify="space-between"
+                    align="center"
+                    px={4}
+                    py={3}
+                    borderBottom="1px"
+                    borderColor="gray.100"
+                    bg="gray.50"
+                  >
+                    <Text fontWeight="bold" color="gray.800">Notificaciones</Text>
+                    <IconButton
+                      aria-label="Configuración"
+                      icon={<Icon as={FiSettings} />}
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowNotifications(false);
+                        navigate('/notifications');
+                      }}
+                    />
+                  </Flex>
+
+                  {/* Contenido */}
+                  <Box maxH="400px" overflowY="auto">
+                    {loadingNotifications ? (
+                      <Flex justify="center" align="center" py={8}>
+                        <Spinner size="md" color="purple.500" />
+                      </Flex>
+                    ) : (
+                      <>
+                        {/* Pedidos Recientes */}
+                        <Box>
+                          <Text
+                            px={4}
+                            py={2}
+                            fontSize="xs"
+                            fontWeight="semibold"
+                            color="gray.500"
+                            textTransform="uppercase"
+                            bg="gray.50"
+                          >
+                            Pedidos Recientes
+                          </Text>
+                          {notifications.recentOrders.length === 0 ? (
+                            <Text px={4} py={3} fontSize="sm" color="gray.500">
+                              No hay pedidos recientes
+                            </Text>
+                          ) : (
+                            notifications.recentOrders.map((order) => (
+                              <Flex
+                                key={order.id}
+                                px={4}
+                                py={3}
+                                cursor="pointer"
+                                _hover={{ bg: 'gray.50' }}
+                                onClick={() => {
+                                  setShowNotifications(false);
+                                  navigate('/orders');
+                                }}
+                                align="start"
+                                gap={3}
+                                borderBottom="1px"
+                                borderColor="gray.50"
+                              >
+                                <Box
+                                  bg="blue.100"
+                                  p={2}
+                                  borderRadius="full"
+                                  flexShrink={0}
+                                >
+                                  <Icon as={FiShoppingCart} color="blue.500" boxSize={4} />
+                                </Box>
+                                <Box flex={1} minW={0}>
+                                  <Text fontSize="sm" fontWeight="medium" color="gray.800" noOfLines={1}>
+                                    Nuevo pedido #{order.id.slice(0, 8)}
+                                  </Text>
+                                  <Text fontSize="xs" color="gray.600" noOfLines={1}>
+                                    {order.client_name || 'Cliente'} - ${formatPrice(order.total_amount || 0)}
+                                  </Text>
+                                  <Text fontSize="xs" color="gray.400">
+                                    {order.created_at
+                                      ? new Date(order.created_at).toLocaleDateString('es-CO', {
+                                          day: 'numeric',
+                                          month: 'short',
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        })
+                                      : ''}
+                                  </Text>
+                                </Box>
+                                <Badge
+                                  colorScheme={getOrderStatusColor(order.order_status)}
+                                  fontSize="xs"
+                                  flexShrink={0}
+                                >
+                                  {order.order_status || 'Pendiente'}
+                                </Badge>
+                              </Flex>
+                            ))
+                          )}
+                        </Box>
+
+                        {/* Pagos Pendientes */}
+                        <Box>
+                          <Text
+                            px={4}
+                            py={2}
+                            fontSize="xs"
+                            fontWeight="semibold"
+                            color="gray.500"
+                            textTransform="uppercase"
+                            bg="gray.50"
+                          >
+                            Pagos Pendientes
+                          </Text>
+                          {notifications.pendingPayments.length === 0 ? (
+                            <Text px={4} py={3} fontSize="sm" color="gray.500">
+                              No hay pagos pendientes
+                            </Text>
+                          ) : (
+                            notifications.pendingPayments.map((order) => (
+                              <Flex
+                                key={`payment-${order.id}`}
+                                px={4}
+                                py={3}
+                                cursor="pointer"
+                                _hover={{ bg: 'gray.50' }}
+                                onClick={() => {
+                                  setShowNotifications(false);
+                                  navigate('/payments');
+                                }}
+                                align="start"
+                                gap={3}
+                                borderBottom="1px"
+                                borderColor="gray.50"
+                              >
+                                <Box
+                                  bg="orange.100"
+                                  p={2}
+                                  borderRadius="full"
+                                  flexShrink={0}
+                                >
+                                  <Icon as={FiDollarSign} color="orange.500" boxSize={4} />
+                                </Box>
+                                <Box flex={1} minW={0}>
+                                  <Text fontSize="sm" fontWeight="medium" color="gray.800" noOfLines={1}>
+                                    Pago pendiente
+                                  </Text>
+                                  <Text fontSize="xs" color="gray.600" noOfLines={1}>
+                                    {order.client_name || 'Cliente'} - ${formatPrice(order.total_amount || 0)}
+                                  </Text>
+                                  <Text fontSize="xs" color="gray.400">
+                                    Pedido #{order.id.slice(0, 8)}
+                                  </Text>
+                                </Box>
+                                <Badge colorScheme="orange" fontSize="xs" flexShrink={0}>
+                                  Pendiente
+                                </Badge>
+                              </Flex>
+                            ))
+                          )}
+                        </Box>
+                      </>
+                    )}
+                  </Box>
+
+                  {/* Footer */}
+                  <Box
+                    px={4}
+                    py={3}
+                    borderTop="1px"
+                    borderColor="gray.100"
+                    bg="gray.50"
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      colorScheme="purple"
+                      w="100%"
+                      onClick={() => {
+                        setShowNotifications(false);
+                        navigate('/notifications');
+                      }}
+                    >
+                      Ver todas las notificaciones
+                    </Button>
+                  </Box>
+                </Box>
+              )}
             </Box>
 
             {/* Usuario con menú desplegable */}
@@ -472,9 +892,9 @@ function Layout() {
           flex={1}
           overflow="auto"
           bg="gray.50"
-          p={{ base: 3, sm: 4, md: 6, lg: 8 }}
+          p={{ base: 2, sm: 3, md: 4, lg: 5 }}
         >
-          <Box w="full" maxW="1600px" mx="auto">
+          <Box w="100%">
             {/* Outlet es donde se muestran las páginas hijas (Dashboard, Products, etc.) */}
             <Outlet />
           </Box>

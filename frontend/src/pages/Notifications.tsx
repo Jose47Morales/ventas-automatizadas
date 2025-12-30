@@ -243,13 +243,13 @@ function Notifications() {
   }
 
   return (
-    <Box>
+    <Box w="100%">
       {/* Encabezado */}
       <Stack
         direction={{ base: 'column', md: 'row' }}
         justify="space-between"
         align={{ base: 'stretch', md: 'center' }}
-        mb={6}
+        mb={4}
         spacing={3}
       >
         <HStack spacing={3} flexWrap="wrap">
@@ -286,7 +286,7 @@ function Notifications() {
       </Stack>
 
       {/* Resumen de estadísticas */}
-      <SimpleGrid columns={{ base: 2, md: 4 }} gap={{ base: 3, md: 4 }} mb={6}>
+      <SimpleGrid columns={{ base: 2, md: 4 }} gap={{ base: 2, md: 4 }} mb={4}>
         <Box bg="blue.50" p={{ base: 3, md: 4 }} borderRadius="lg" borderLeft="4px" borderColor="blue.500">
           <HStack spacing={{ base: 2, md: 3 }}>
             <Icon as={FiShoppingCart} color="blue.500" boxSize={{ base: 5, md: 6 }} />

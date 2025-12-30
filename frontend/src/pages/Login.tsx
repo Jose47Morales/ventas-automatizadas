@@ -212,19 +212,20 @@ function Login() {
     >
       <Container maxW="md" w="full">
         <VStack spacing={8} align="stretch">
-          <VStack spacing={2}>
+          <VStack spacing={3}>
             <Box
-              bg="purple.500"
-              p={4}
-              borderRadius="lg"
-              display="inline-block"
+              w={32}
+              h={32}
+              borderRadius="full"
+              overflow="hidden"
+              bg="black"
+              boxShadow="lg"
             >
-              <Icon viewBox="0 0 24 24" boxSize={8} color="white">
-                <path
-                  fill="currentColor"
-                  d="M3 4h18v2H3V4zm0 7h18v2H3v-2zm0 7h18v2H3v-2z"
-                />
-              </Icon>
+              <img
+                src="/logo.png"
+                alt="Bodega Mayorista"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
             </Box>
             <Heading size="lg">Panel Administrativo</Heading>
             <Text color="gray.600">Bodega Mayorista</Text>

@@ -245,16 +245,16 @@ function Orders() {
   }
 
   return (
-    <Box>
+    <Box w="100%">
       {/* Encabezado */}
-      <Flex justify="space-between" align="center" mb={6}>
+      <Flex justify="space-between" align="center" mb={4}>
         <Heading size={headingSize} color="gray.800">
            Panel de Órdenes
         </Heading>
       </Flex>
 
       {/* Tarjetas de métricas */}
-      <SimpleGrid columns={{ base: 1, sm: 3 }} gap={{ base: 3, md: 6 }} mb={6}>
+      <SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} gap={{ base: 2, md: 4 }} mb={4}>
         <StatCard
           title="Total Pedidos"
           value={totalOrders.toString()}
@@ -279,7 +279,7 @@ function Orders() {
       </SimpleGrid>
 
       {/* Barra de filtros */}
-      <Box bg="purple.50" p={{ base: 3, md: 4 }} borderRadius="lg" boxShadow="sm" mb={6}>
+      <Box bg="purple.50" p={{ base: 2, md: 3 }} borderRadius="lg" boxShadow="sm" mb={4}>
         <Flex justify="space-between" align="center" wrap="wrap" gap={2}>
           <Text fontSize={{ base: 'xs', md: 'sm' }} color="black" fontWeight="medium">
             Filtrar por estado:

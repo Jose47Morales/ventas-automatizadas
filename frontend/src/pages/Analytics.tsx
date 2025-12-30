@@ -256,9 +256,9 @@ function Analytics() {
   }
 
   return (
-    <Box>
+    <Box w="100%">
       {/* Encabezado */}
-      <Flex justify="space-between" align="center" mb={6}>
+      <Flex justify="space-between" align="center" mb={4}>
         <Box>
           <Heading size={headingSize} color="gray.800">
             Panel de Ventas y Analíticas
@@ -270,14 +270,14 @@ function Analytics() {
       </Flex>
 
       {/* Tarjetas de métricas principales */}
-      <SimpleGrid columns={{ base: 2, md: 2, lg: 4 }} gap={{ base: 3, md: 6 }} mb={6}>
+      <SimpleGrid columns={{ base: 2, md: 2, lg: 4 }} gap={{ base: 2, md: 4 }} mb={4}>
         {stats.map((stat, index) => (
           <StatsCard key={index} {...stat} />
         ))}
       </SimpleGrid>
 
       {/* Métricas del Bot */}
-      <SimpleGrid columns={{ base: 2, md: 4 }} gap={{ base: 3, md: 4 }} mb={6}>
+      <SimpleGrid columns={{ base: 2, md: 4 }} gap={{ base: 2, md: 4 }} mb={4}>
         {botMetrics.map((metric, index) => (
           <Box
             key={index}
@@ -304,7 +304,7 @@ function Analytics() {
       </SimpleGrid>
 
       {/* Gráfico de Ventas por Día */}
-      <Box mb={6}>
+      <Box mb={4}>
         <BarChart
           title="Ventas por Día de la Semana"
           subtitle="Distribución de ventas"
@@ -316,7 +316,7 @@ function Analytics() {
       </Box>
 
       {/* Productos Más Vendidos - Tabla en desktop, Tarjetas en móvil */}
-      <Box bg="purple.50" p={{ base: 4, md: 6 }} borderRadius="lg" boxShadow="sm">
+      <Box bg="purple.50" p={{ base: 3, md: 4 }} borderRadius="lg" boxShadow="sm">
         <Heading size={{ base: 'sm', md: 'md' }} mb={2} color="gray.800">
           Productos Más Vendidos
         </Heading>
