@@ -111,6 +111,12 @@ function Products() {
 
   // Estado para el modal de agregar producto
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  // Estado para el modal de eliminar producto
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const [newProduct, setNewProduct] = useState({
     nombre: '',
     referencia: '',
@@ -279,20 +285,49 @@ function Products() {
     }
   };
 
-  // Función para eliminar producto
-  const handleDeleteProduct = async (product: Product) => {
-    if (!window.confirm(`¿Estás seguro de eliminar "${product.name}"?`)) return;
+  // Función para abrir modal de eliminar producto
+  const handleDeleteProduct = (product: Product) => {
+    setProductToDelete(product);
+    setIsDeleteModalOpen(true);
+  };
 
+  // Función para cerrar modal de eliminar
+  const handleCloseDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setProductToDelete(null);
+  };
+
+  // Función para confirmar eliminación
+  const handleConfirmDelete = async () => {
+    if (!productToDelete) return;
+
+    setIsDeleting(true);
     try {
-      await productsAPI.delete(product.id);
+      await productsAPI.delete(productToDelete.id);
       toast({
         title: 'Producto eliminado',
-        description: `${product.name} se ha eliminado correctamente.`,
+        description: `${productToDelete.name} se ha eliminado correctamente.`,
         status: 'success',
         duration: 3000,
         isClosable: true,
       });
-      // Aquí podrías recargar los productos desde la API
+
+      // Recargar productos
+      const data: APIProduct[] = await productsAPI.getAll();
+      const mappedProducts: Product[] = data.map((p) => ({
+        id: p.id,
+        name: p.nombre,
+        category: p.categoria || 'Sin categoría',
+        brand: p.marca || 'Sin marca',
+        price: parseFloat(p.precioventa_con_impuesto) || 0,
+        minQuantity: p.stock_minimo || 1,
+        discount: parseFloat(p.descuento_maximo_ps) || 0,
+        stock: p.existencias || 0,
+        image: p.url_imagen || '📦',
+      }));
+      setProducts(mappedProducts);
+
+      handleCloseDeleteModal();
     } catch (error) {
       console.error('Error al eliminar producto:', error);
       toast({
@@ -302,6 +337,8 @@ function Products() {
         duration: 3000,
         isClosable: true,
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -547,7 +584,9 @@ function Products() {
               w={{ base: '100%', md: '200px' }}
               textAlign="left"
             >
-              <Text isTruncated>{selectedCategory}</Text>
+              <Text isTruncated>
+                {selectedCategory === 'Todas las categorías' ? selectedCategory : selectedCategory.toUpperCase()}
+              </Text>
             </MenuButton>
             <MenuList maxH="300px" overflowY="auto">
               {categories.map((category) => (
@@ -555,7 +594,7 @@ function Products() {
                   key={category}
                   onClick={() => setSelectedCategory(category)}
                 >
-                  {category}
+                  {category === 'Todas las categorías' ? category : category.toUpperCase()}
                 </MenuItem>
               ))}
             </MenuList>
@@ -596,7 +635,7 @@ function Products() {
                         {product.name}
                       </Text>
                       <Badge colorScheme="blue" fontSize="xs">
-                        {product.category}
+                        {product.category.toUpperCase()}
                       </Badge>
                     </VStack>
                   </HStack>
@@ -691,7 +730,7 @@ function Products() {
                     {/* Categoría */}
                     <Td>
                       <Badge colorScheme="blue" fontSize="sm" px={2} py={1}>
-                        {product.category}
+                        {product.category.toUpperCase()}
                       </Badge>
                     </Td>
 
@@ -892,13 +931,23 @@ function Products() {
             maxW={modalWidth}
             w="100%"
             maxH={{ base: '95vh', md: '90vh' }}
-            overflow="auto"
+            display="flex"
+            flexDirection="column"
             boxShadow="2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <Box bg="purple.500" color="white" p={{ base: 3, md: 4 }} borderTopRadius="xl" position="relative">
-              <HStack spacing={3}>
+            {/* Header - Fijo */}
+            <Box
+              bg="purple.500"
+              color="white"
+              p={{ base: 3, md: 4 }}
+              borderTopRadius="xl"
+              position="sticky"
+              top={0}
+              zIndex={1}
+              flexShrink={0}
+            >
+              <HStack spacing={3} pr={8}>
                 <Icon as={FiPackage} boxSize={5} />
                 <Text fontSize={{ base: 'md', md: 'lg' }} fontWeight="bold">Editar Producto</Text>
               </HStack>
@@ -907,7 +956,8 @@ function Products() {
                 icon={<FiX />}
                 position="absolute"
                 right={2}
-                top={2}
+                top="50%"
+                transform="translateY(-50%)"
                 size="sm"
                 variant="ghost"
                 color="white"
@@ -916,8 +966,8 @@ function Products() {
               />
             </Box>
 
-            {/* Body - Formulario */}
-            <Box p={{ base: 4, md: 6 }}>
+            {/* Body - Formulario con scroll */}
+            <Box p={{ base: 4, md: 6 }} overflowY="auto" flex={1}>
               <VStack spacing={4} align="stretch">
                 {/* Nombre del producto */}
                 <FormControl isRequired>
@@ -1197,8 +1247,15 @@ function Products() {
               </VStack>
             </Box>
 
-            {/* Footer */}
-            <Box p={{ base: 3, md: 4 }} borderTop="1px" borderColor="gray.200" bg="gray.50">
+            {/* Footer - Fijo */}
+            <Box
+              p={{ base: 3, md: 4 }}
+              borderTop="1px"
+              borderColor="gray.200"
+              bg="gray.50"
+              borderBottomRadius="xl"
+              flexShrink={0}
+            >
               <Stack direction={{ base: 'column', sm: 'row' }} justify="space-between" align={{ base: 'stretch', sm: 'center' }} spacing={3}>
                 <Text fontSize="sm" color="gray.500" display={{ base: 'none', sm: 'block' }}>
                   * Campos requeridos
@@ -1252,13 +1309,23 @@ function Products() {
             maxW={modalWidth}
             w="100%"
             maxH={{ base: '95vh', md: '90vh' }}
-            overflow="auto"
+            display="flex"
+            flexDirection="column"
             boxShadow="2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <Box bg="purple.500" color="white" p={{ base: 3, md: 4 }} borderTopRadius="xl" position="relative">
-              <HStack spacing={3}>
+            {/* Header - Fijo */}
+            <Box
+              bg="purple.500"
+              color="white"
+              p={{ base: 3, md: 4 }}
+              borderTopRadius="xl"
+              position="sticky"
+              top={0}
+              zIndex={1}
+              flexShrink={0}
+            >
+              <HStack spacing={3} pr={8}>
                 <Icon as={FiPlus} boxSize={5} />
                 <Text fontSize={{ base: 'md', md: 'lg' }} fontWeight="bold">Agregar Nuevo Producto</Text>
               </HStack>
@@ -1267,7 +1334,8 @@ function Products() {
                 icon={<FiX />}
                 position="absolute"
                 right={2}
-                top={2}
+                top="50%"
+                transform="translateY(-50%)"
                 size="sm"
                 variant="ghost"
                 color="white"
@@ -1276,8 +1344,8 @@ function Products() {
               />
             </Box>
 
-            {/* Body - Formulario */}
-            <Box p={{ base: 4, md: 6 }}>
+            {/* Body - Formulario con scroll */}
+            <Box p={{ base: 4, md: 6 }} overflowY="auto" flex={1}>
               <VStack spacing={4} align="stretch">
                 {/* Nombre del producto */}
                 <FormControl isRequired>
@@ -1557,8 +1625,15 @@ function Products() {
               </VStack>
             </Box>
 
-            {/* Footer */}
-            <Box p={{ base: 3, md: 4 }} borderTop="1px" borderColor="gray.200" bg="gray.50">
+            {/* Footer - Fijo */}
+            <Box
+              p={{ base: 3, md: 4 }}
+              borderTop="1px"
+              borderColor="gray.200"
+              bg="gray.50"
+              borderBottomRadius="xl"
+              flexShrink={0}
+            >
               <Stack direction={{ base: 'column', sm: 'row' }} justify="space-between" align={{ base: 'stretch', sm: 'center' }} spacing={3}>
                 <Text fontSize="sm" color="gray.500" display={{ base: 'none', sm: 'block' }}>
                   * Campos requeridos
@@ -1584,6 +1659,112 @@ function Products() {
                     Crear Producto
                   </Button>
                 </Stack>
+              </Stack>
+            </Box>
+          </Box>
+        </Box>
+      )}
+
+      {/* Modal de Confirmación de Eliminación */}
+      {isDeleteModalOpen && productToDelete && (
+        <Box
+          position="fixed"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          bg="blackAlpha.600"
+          zIndex={9999}
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          p={{ base: 2, md: 4 }}
+          onClick={handleCloseDeleteModal}
+        >
+          <Box
+            bg="white"
+            borderRadius="xl"
+            maxW={{ base: '95%', sm: '400px' }}
+            w="100%"
+            boxShadow="2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <Box
+              bg="red.500"
+              color="white"
+              p={{ base: 3, md: 4 }}
+              borderTopRadius="xl"
+              position="relative"
+            >
+              <HStack spacing={3} pr={8}>
+                <Icon as={FiTrash2} boxSize={5} />
+                <Text fontSize={{ base: 'md', md: 'lg' }} fontWeight="bold">Eliminar Producto</Text>
+              </HStack>
+              <IconButton
+                aria-label="Cerrar"
+                icon={<FiX />}
+                position="absolute"
+                right={2}
+                top="50%"
+                transform="translateY(-50%)"
+                size="sm"
+                variant="ghost"
+                color="white"
+                _hover={{ bg: 'red.600' }}
+                onClick={handleCloseDeleteModal}
+              />
+            </Box>
+
+            {/* Body */}
+            <Box p={{ base: 4, md: 6 }}>
+              <VStack spacing={4} align="stretch">
+                <Text color="gray.700" textAlign="center">
+                  ¿Estás seguro de que deseas eliminar el producto?
+                </Text>
+                <Box
+                  bg="gray.100"
+                  p={4}
+                  borderRadius="md"
+                  textAlign="center"
+                >
+                  <Text fontWeight="bold" color="gray.800" fontSize="lg">
+                    {productToDelete.name}
+                  </Text>
+                  <HStack justify="center" spacing={4} mt={2}>
+                    <Badge colorScheme="blue">{productToDelete.category.toUpperCase()}</Badge>
+                    <Text fontSize="sm" color="gray.600">
+                      Stock: {productToDelete.stock}
+                    </Text>
+                  </HStack>
+                </Box>
+                <Text fontSize="sm" color="red.600" textAlign="center">
+                  Esta acción no se puede deshacer.
+                </Text>
+              </VStack>
+            </Box>
+
+            {/* Footer */}
+            <Box p={{ base: 3, md: 4 }} borderTop="1px" borderColor="gray.200" bg="gray.50" borderBottomRadius="xl">
+              <Stack direction={{ base: 'column-reverse', sm: 'row' }} justify="flex-end" spacing={3}>
+                <Button
+                  variant="ghost"
+                  onClick={handleCloseDeleteModal}
+                  isDisabled={isDeleting}
+                  w={{ base: '100%', sm: 'auto' }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  colorScheme="red"
+                  onClick={handleConfirmDelete}
+                  isLoading={isDeleting}
+                  loadingText="Eliminando..."
+                  leftIcon={<FiTrash2 />}
+                  w={{ base: '100%', sm: 'auto' }}
+                >
+                  Eliminar
+                </Button>
               </Stack>
             </Box>
           </Box>

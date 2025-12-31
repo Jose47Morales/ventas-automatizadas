@@ -144,9 +144,10 @@ function Layout() {
   const [selectedType, setSelectedType] = useState<'product' | 'order' | null>(null);
 
   // Estados para autocompletado (sugerencias)
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<{ text: string; type: 'product' | 'order' | 'client' }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [allProducts, setAllProducts] = useState<SearchProduct[]>([]);
+  const [allOrders, setAllOrders] = useState<SearchOrder[]>([]);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const searchInputRef = useRef<HTMLDivElement>(null);
 
@@ -174,18 +175,30 @@ function Layout() {
     navigate('/login');
   };
 
-  // Cargar productos al montar el componente para sugerencias
+  // Cargar productos y pedidos al montar el componente para búsqueda global
   useEffect(() => {
-    const loadProducts = async () => {
+    const loadData = async () => {
       try {
-        const products = await productsAPI.getAll();
-        setAllProducts(products);
+        const [products, ordersResponse] = await Promise.all([
+          productsAPI.getAll(),
+          ordersAPI.getAll().catch(() => [])
+        ]);
+        setAllProducts(Array.isArray(products) ? products : []);
+        // La API puede devolver { data: [...] } o directamente [...]
+        const orders = ordersResponse?.data || ordersResponse;
+        setAllOrders(Array.isArray(orders) ? orders : []);
       } catch (error) {
-        console.error('Error cargando productos para sugerencias:', error);
+        console.error('Error cargando datos para búsqueda:', error);
       }
     };
-    loadProducts();
+    loadData();
   }, []);
+
+  // Función para formatear ID (últimos 8 caracteres en uppercase)
+  const formatId = (id: string | number): string => {
+    const idStr = String(id);
+    return idStr.slice(-8).toUpperCase();
+  };
 
   // Generar sugerencias cuando cambia el término de búsqueda
   useEffect(() => {
@@ -196,36 +209,82 @@ function Layout() {
     }
 
     const term = searchTerm.toLowerCase();
-    const matchedSuggestions: string[] = [];
+    const matchedSuggestions: { text: string; type: 'product' | 'order' | 'client' }[] = [];
+    const addedTexts = new Set<string>();
 
-    // Buscar en nombres de productos
+    // Buscar en productos (nombre, categoría, marca, referencia, código de barras, ID)
     allProducts.forEach((p) => {
-      if (p.nombre?.toLowerCase().includes(term) && !matchedSuggestions.includes(p.nombre)) {
-        matchedSuggestions.push(p.nombre);
+      // Nombre del producto
+      if (p.nombre?.toLowerCase().includes(term) && !addedTexts.has(p.nombre)) {
+        matchedSuggestions.push({ text: p.nombre, type: 'product' });
+        addedTexts.add(p.nombre);
       }
-      // También buscar en categorías
-      if (p.categoria?.toLowerCase().includes(term) && !matchedSuggestions.includes(p.categoria)) {
-        matchedSuggestions.push(p.categoria);
+      // Categoría
+      if (p.categoria?.toLowerCase().includes(term) && !addedTexts.has(p.categoria)) {
+        matchedSuggestions.push({ text: p.categoria, type: 'product' });
+        addedTexts.add(p.categoria);
       }
-      // También buscar en marcas
-      if (p.marca?.toLowerCase().includes(term) && !matchedSuggestions.includes(p.marca)) {
-        matchedSuggestions.push(p.marca);
+      // Marca
+      if (p.marca?.toLowerCase().includes(term) && !addedTexts.has(p.marca)) {
+        matchedSuggestions.push({ text: p.marca, type: 'product' });
+        addedTexts.add(p.marca);
+      }
+      // Referencia
+      if (p.referencia?.toLowerCase().includes(term) && !addedTexts.has(p.referencia)) {
+        matchedSuggestions.push({ text: p.referencia, type: 'product' });
+        addedTexts.add(p.referencia);
+      }
+      // Código de barras
+      if (p.codigo_barras?.toLowerCase().includes(term) && !addedTexts.has(p.codigo_barras)) {
+        matchedSuggestions.push({ text: p.codigo_barras, type: 'product' });
+        addedTexts.add(p.codigo_barras);
+      }
+      // ID del producto
+      if (p.id?.toString().toLowerCase().includes(term) || formatId(p.id).toLowerCase().includes(term)) {
+        const idText = `ID: ${formatId(p.id)}`;
+        if (!addedTexts.has(idText)) {
+          matchedSuggestions.push({ text: idText, type: 'product' });
+          addedTexts.add(idText);
+        }
+      }
+    });
+
+    // Buscar en pedidos (cliente, teléfono, ID)
+    const ordersArray = Array.isArray(allOrders) ? allOrders : [];
+    ordersArray.forEach((o) => {
+      // Nombre del cliente
+      if (o.client_name?.toLowerCase().includes(term) && !addedTexts.has(o.client_name)) {
+        matchedSuggestions.push({ text: o.client_name, type: 'client' });
+        addedTexts.add(o.client_name);
+      }
+      // Teléfono del cliente
+      if (o.client_phone?.toLowerCase().includes(term) && !addedTexts.has(o.client_phone)) {
+        matchedSuggestions.push({ text: o.client_phone, type: 'client' });
+        addedTexts.add(o.client_phone);
+      }
+      // ID del pedido
+      if (o.id?.toString().toLowerCase().includes(term) || formatId(o.id).toLowerCase().includes(term)) {
+        const idText = `Pedido #${formatId(o.id)}`;
+        if (!addedTexts.has(idText)) {
+          matchedSuggestions.push({ text: idText, type: 'order' });
+          addedTexts.add(idText);
+        }
       }
     });
 
     // Ordenar: primero los que empiezan con el término, luego los que lo contienen
     matchedSuggestions.sort((a, b) => {
-      const aStarts = a.toLowerCase().startsWith(term);
-      const bStarts = b.toLowerCase().startsWith(term);
+      const aStarts = a.text.toLowerCase().startsWith(term);
+      const bStarts = b.text.toLowerCase().startsWith(term);
       if (aStarts && !bStarts) return -1;
       if (!aStarts && bStarts) return 1;
-      return a.localeCompare(b);
+      return a.text.localeCompare(b.text);
     });
 
-    setSuggestions(matchedSuggestions.slice(0, 8));
+    setSuggestions(matchedSuggestions.slice(0, 10));
     setShowSuggestions(matchedSuggestions.length > 0);
     setSelectedSuggestionIndex(-1);
-  }, [searchTerm, allProducts]);
+  }, [searchTerm, allProducts, allOrders]);
 
   // Cerrar sugerencias al hacer clic fuera
   useEffect(() => {
@@ -245,16 +304,19 @@ function Layout() {
   const loadNotifications = async () => {
     setLoadingNotifications(true);
     try {
-      const allOrders = await ordersAPI.getAll();
+      const ordersResponse = await ordersAPI.getAll();
+      // La API puede devolver { data: [...] } o directamente [...]
+      const allOrders2 = ordersResponse?.data || ordersResponse;
+      const ordersArray = Array.isArray(allOrders2) ? allOrders2 : [];
 
       // Pedidos recientes (últimos 5 pedidos creados)
-      const sortedOrders = [...allOrders].sort((a: SearchOrder, b: SearchOrder) =>
+      const sortedOrders = [...ordersArray].sort((a: SearchOrder, b: SearchOrder) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       const recentOrders = sortedOrders.slice(0, 5);
 
       // Pagos pendientes (pedidos con payment_status !== 'paid')
-      const pendingPayments = allOrders.filter((o: SearchOrder) =>
+      const pendingPayments = ordersArray.filter((o: SearchOrder) =>
         o.payment_status !== 'paid'
       ).slice(0, 5);
 
@@ -274,29 +336,78 @@ function Layout() {
     }
   };
 
-  // Seleccionar una sugerencia - abre directamente el modal con el producto
-  const handleSelectSuggestion = (suggestion: string) => {
-    setSearchTerm(suggestion);
+  // Seleccionar una sugerencia - abre directamente el modal con el resultado
+  const handleSelectSuggestion = (suggestion: { text: string; type: 'product' | 'order' | 'client' }) => {
+    setSearchTerm(suggestion.text);
     setShowSuggestions(false);
+
+    // Si es un ID de pedido, buscar el pedido
+    if (suggestion.type === 'order' && suggestion.text.startsWith('Pedido #')) {
+      const orderId = suggestion.text.replace('Pedido #', '');
+      const matchedOrder = allOrders.find(
+        (o) => formatId(o.id) === orderId
+      );
+      if (matchedOrder) {
+        setSelectedItem(matchedOrder);
+        setSelectedType('order');
+        setSearchResults({ products: [], orders: [matchedOrder] });
+        setIsSearchModalOpen(true);
+        return;
+      }
+    }
+
+    // Si es un ID de producto, buscar el producto
+    if (suggestion.type === 'product' && suggestion.text.startsWith('ID: ')) {
+      const productId = suggestion.text.replace('ID: ', '');
+      const matchedProduct = allProducts.find(
+        (p) => formatId(p.id) === productId
+      );
+      if (matchedProduct) {
+        setSelectedItem(matchedProduct);
+        setSelectedType('product');
+        setSearchResults({ products: [matchedProduct], orders: [] });
+        setIsSearchModalOpen(true);
+        return;
+      }
+    }
 
     // Buscar el producto que coincide exactamente con la sugerencia
     const matchedProduct = allProducts.find(
       (p) =>
-        p.nombre === suggestion ||
-        p.categoria === suggestion ||
-        p.marca === suggestion
+        p.nombre === suggestion.text ||
+        p.categoria === suggestion.text ||
+        p.marca === suggestion.text ||
+        p.referencia === suggestion.text ||
+        p.codigo_barras === suggestion.text
     );
 
     if (matchedProduct) {
-      // Si encontramos un producto exacto, abrimos directamente el modal de detalles
       setSelectedItem(matchedProduct);
       setSelectedType('product');
       setSearchResults({ products: [matchedProduct], orders: [] });
       setIsSearchModalOpen(true);
-    } else {
-      // Si no hay coincidencia exacta (ej: categoría/marca), ejecutar búsqueda normal
-      setTimeout(() => handleSearch(), 100);
+      return;
     }
+
+    // Buscar en pedidos por nombre de cliente o teléfono
+    const matchedOrders = allOrders.filter(
+      (o) =>
+        o.client_name === suggestion.text ||
+        o.client_phone === suggestion.text
+    );
+
+    if (matchedOrders.length > 0) {
+      if (matchedOrders.length === 1) {
+        setSelectedItem(matchedOrders[0]);
+        setSelectedType('order');
+      }
+      setSearchResults({ products: [], orders: matchedOrders });
+      setIsSearchModalOpen(true);
+      return;
+    }
+
+    // Si no hay coincidencia exacta, ejecutar búsqueda normal
+    setTimeout(() => handleSearch(), 100);
   };
 
   // Función para realizar la búsqueda
@@ -307,35 +418,45 @@ function Layout() {
     setIsSearching(true);
     setIsSearchModalOpen(true);
 
+    const term = searchTerm.toLowerCase();
+
     try {
-      // Buscar productos
+      // Buscar productos (en todos los campos importantes)
       const productsData = allProducts.length > 0 ? allProducts : await productsAPI.getAll();
       const filteredProducts = productsData.filter((p: SearchProduct) =>
-        p.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.categoria?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.marca?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.referencia?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.codigo_barras?.toLowerCase().includes(searchTerm.toLowerCase())
+        p.nombre?.toLowerCase().includes(term) ||
+        p.categoria?.toLowerCase().includes(term) ||
+        p.marca?.toLowerCase().includes(term) ||
+        p.referencia?.toLowerCase().includes(term) ||
+        p.codigo_barras?.toLowerCase().includes(term) ||
+        p.id?.toString().toLowerCase().includes(term) ||
+        formatId(p.id).toLowerCase().includes(term) ||
+        p.ubicacion?.toLowerCase().includes(term) ||
+        p.proveedor?.toLowerCase().includes(term) ||
+        p.nota?.toLowerCase().includes(term)
       );
 
-      // Buscar pedidos
-      let filteredOrders: SearchOrder[] = [];
-      try {
-        const allOrders = await ordersAPI.getAll();
-        filteredOrders = allOrders.filter((o: SearchOrder) =>
-          o.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          o.client_phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          o.id?.toString().includes(searchTerm) ||
-          o.order_status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          o.payment_status?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      } catch {
-        // Si no hay endpoint de orders, ignorar
+      // Buscar pedidos (en todos los campos importantes)
+      let ordersData = Array.isArray(allOrders) && allOrders.length > 0 ? allOrders : [];
+      if (ordersData.length === 0) {
+        const ordersResponse = await ordersAPI.getAll().catch(() => []);
+        ordersData = ordersResponse?.data || ordersResponse || [];
+        if (!Array.isArray(ordersData)) ordersData = [];
       }
+      const filteredOrders = ordersData.filter((o: SearchOrder) =>
+        o.client_name?.toLowerCase().includes(term) ||
+        o.client_phone?.toLowerCase().includes(term) ||
+        o.id?.toString().toLowerCase().includes(term) ||
+        formatId(o.id).toLowerCase().includes(term) ||
+        o.order_status?.toLowerCase().includes(term) ||
+        o.payment_status?.toLowerCase().includes(term) ||
+        o.notes?.toLowerCase().includes(term) ||
+        o.source?.toLowerCase().includes(term)
+      );
 
       setSearchResults({
-        products: filteredProducts.slice(0, 10),
-        orders: filteredOrders.slice(0, 10),
+        products: filteredProducts.slice(0, 15),
+        orders: filteredOrders.slice(0, 15),
       });
     } catch (error) {
       console.error('Error en búsqueda:', error);
@@ -349,7 +470,7 @@ function Layout() {
     } finally {
       setIsSearching(false);
     }
-  }, [searchTerm, toast]);
+  }, [searchTerm, allProducts, allOrders, toast]);
 
   // Manejar teclas en búsqueda (Enter, flechas, Escape)
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
@@ -596,14 +717,40 @@ function Layout() {
                     align="center"
                     gap={3}
                   >
-                    <SearchIcon color="gray.400" boxSize={3} />
+                    <Icon
+                      as={
+                        suggestion.type === 'product' ? FiPackage :
+                        suggestion.type === 'order' ? FiShoppingCart :
+                        FiUser
+                      }
+                      color={
+                        suggestion.type === 'product' ? 'purple.500' :
+                        suggestion.type === 'order' ? 'blue.500' :
+                        'green.500'
+                      }
+                      boxSize={4}
+                    />
                     <Text
                       fontSize="sm"
                       color="gray.700"
                       noOfLines={1}
+                      flex={1}
                     >
-                      {suggestion}
+                      {suggestion.text}
                     </Text>
+                    <Badge
+                      size="sm"
+                      colorScheme={
+                        suggestion.type === 'product' ? 'purple' :
+                        suggestion.type === 'order' ? 'blue' :
+                        'green'
+                      }
+                      fontSize="xs"
+                    >
+                      {suggestion.type === 'product' ? 'Producto' :
+                       suggestion.type === 'order' ? 'Pedido' :
+                       'Cliente'}
+                    </Badge>
                   </Flex>
                 ))}
               </Box>

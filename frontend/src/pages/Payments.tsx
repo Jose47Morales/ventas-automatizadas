@@ -69,6 +69,13 @@ interface Payment {
   date: string;
 }
 
+// Función para formatear ID: mostrar últimos 8 caracteres en uppercase
+const formatPaymentId = (id: string | number): string => {
+  const idStr = String(id);
+  const last8 = idStr.slice(-8);
+  return `#${last8.toUpperCase()}`;
+};
+
 // Componente StatCard para las métricas superiores
 interface StatCardProps {
   title: string;
@@ -152,8 +159,8 @@ function Payments() {
 
         // Mapear las órdenes a formato de pagos
         const mappedPayments: Payment[] = data.map((o) => ({
-          id: `#${o.id}`,
-          order: `#${o.id}`,
+          id: formatPaymentId(o.id),
+          order: formatPaymentId(o.id),
           client: o.client_name || 'Sin nombre',
           amount: parseFloat(o.total) || 0,
           status: mapPaymentStatus(o.payment_status),

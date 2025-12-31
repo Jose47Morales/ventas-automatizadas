@@ -75,119 +75,172 @@ interface LowStockProduct {
   category: string;
 }
 
+// Constantes para los intervalos de actualización
+const ORDERS_UPDATE_INTERVAL = 60 * 1000; // 1 minuto
+const STOCK_UPDATE_INTERVAL = 24 * 60 * 60 * 1000; // 24 horas
+const STOCK_STORAGE_KEY = 'lastStockUpdate';
+const STOCK_DATA_KEY = 'cachedStockData';
+
 function Notifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [lastStockUpdate, setLastStockUpdate] = useState<Date | null>(null);
 
   const toast = useToast();
 
   // Responsive values
   const headingSize = useBreakpointValue({ base: 'md', md: 'lg' });
 
-  // Cargar datos
-  const fetchData = async () => {
+  // Verificar si necesita actualizar el stock (cada 24 horas)
+  const shouldUpdateStock = (): boolean => {
+    const lastUpdate = localStorage.getItem(STOCK_STORAGE_KEY);
+    if (!lastUpdate) return true;
+
+    const lastUpdateTime = new Date(lastUpdate).getTime();
+    const now = Date.now();
+    return (now - lastUpdateTime) >= STOCK_UPDATE_INTERVAL;
+  };
+
+  // Cargar datos de stock desde cache o API
+  const fetchStockData = async (forceUpdate = false): Promise<{ lowStock: LowStockProduct[]; stockNotifications: Notification[] }> => {
+    // Si no necesita actualizar y hay cache, usar cache
+    if (!forceUpdate && !shouldUpdateStock()) {
+      const cachedData = localStorage.getItem(STOCK_DATA_KEY);
+      if (cachedData) {
+        try {
+          const parsed = JSON.parse(cachedData);
+          setLastStockUpdate(new Date(localStorage.getItem(STOCK_STORAGE_KEY) || ''));
+          return parsed;
+        } catch {
+          // Si falla el parse, continuar con la actualización
+        }
+      }
+    }
+
+    // Obtener datos frescos de la API
+    const productsRes = await productsAPI.getAll();
+    const products: APIProduct[] = productsRes || [];
+
+    const lowStock = products
+      .filter((p) => p.existencias <= (p.stock_minimo || 5))
+      .map((p) => ({
+        id: p.id,
+        name: p.nombre,
+        stock: p.existencias,
+        minStock: p.stock_minimo || 5,
+        category: p.categoria || 'Sin categoría',
+      }));
+
+    const stockNotifications: Notification[] = lowStock.slice(0, 10).map((product) => ({
+      id: `stock-${product.id}`,
+      type: 'stock' as const,
+      title: 'Stock Bajo',
+      message: `${product.name} - Solo ${product.stock} unidades disponibles`,
+      timestamp: new Date().toISOString(),
+      icon: FiAlertTriangle,
+      color: 'red.500',
+      read: false,
+    }));
+
+    // Guardar en cache
+    const cacheData = { lowStock, stockNotifications };
+    localStorage.setItem(STOCK_DATA_KEY, JSON.stringify(cacheData));
+    localStorage.setItem(STOCK_STORAGE_KEY, new Date().toISOString());
+    setLastStockUpdate(new Date());
+
+    return cacheData;
+  };
+
+  // Cargar datos de pedidos (se actualiza cada 1 minuto)
+  const fetchOrdersData = async (): Promise<{
+    orderNotifications: Notification[];
+    paymentNotifications: Notification[];
+    topProductNotifications: Notification[];
+    topProducts: TopProduct[];
+  }> => {
+    const ordersRes = await ordersAPI.getAll();
+    const orders: APIOrder[] = Array.isArray(ordersRes) ? ordersRes : (ordersRes?.data || []);
+
+    // Generar notificaciones de pedidos recientes (últimas 24 horas)
+    const now = new Date();
+    const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    const recentOrders = orders.filter((o) => new Date(o.created_at) > last24h);
+
+    const orderNotifications: Notification[] = recentOrders.map((order) => ({
+      id: `order-${order.id}`,
+      type: 'order' as const,
+      title: 'Nuevo Pedido',
+      message: `Pedido #${String(order.id).slice(-8).toUpperCase()} de ${order.client_name || 'Cliente'} por $${parseFloat(order.total).toLocaleString()}`,
+      timestamp: order.created_at,
+      icon: FiShoppingCart,
+      color: 'blue.500',
+      read: false,
+    }));
+
+    // Notificaciones de pagos pendientes
+    const pendingPayments = orders.filter((o) => o.payment_status === 'pending');
+    const paymentNotifications: Notification[] = pendingPayments.slice(0, 5).map((order) => ({
+      id: `payment-${order.id}`,
+      type: 'payment' as const,
+      title: 'Pago Pendiente',
+      message: `Pedido #${String(order.id).slice(-8).toUpperCase()} - $${parseFloat(order.total).toLocaleString()} pendiente de pago`,
+      timestamp: order.created_at,
+      icon: FiClock,
+      color: 'orange.500',
+      read: false,
+    }));
+
+    // Calcular productos más vendidos
+    const productSales: Record<string, { name: string; units: number; revenue: number }> = {};
+    orders.forEach((order) => {
+      order.items?.forEach((item) => {
+        if (!productSales[item.product_name]) {
+          productSales[item.product_name] = { name: item.product_name, units: 0, revenue: 0 };
+        }
+        productSales[item.product_name].units += item.quantity;
+        productSales[item.product_name].revenue += item.total;
+      });
+    });
+
+    const sortedProducts = Object.values(productSales)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+
+    const topProductNotifications: Notification[] = sortedProducts.slice(0, 3).map((product, i) => ({
+      id: `top-${i}`,
+      type: 'top_product' as const,
+      title: `Top ${i + 1} en Ventas`,
+      message: `${product.name} - ${product.units} unidades vendidas ($${product.revenue.toLocaleString()})`,
+      timestamp: new Date().toISOString(),
+      icon: FiTrendingUp,
+      color: 'green.500',
+      read: false,
+    }));
+
+    return { orderNotifications, paymentNotifications, topProductNotifications, topProducts: sortedProducts };
+  };
+
+  // Cargar todos los datos (inicial o manual)
+  const fetchAllData = async (forceStockUpdate = false) => {
     setIsLoading(true);
     try {
-      const [ordersRes, productsRes] = await Promise.all([
-        ordersAPI.getAll(),
-        productsAPI.getAll(),
+      const [stockData, ordersData] = await Promise.all([
+        fetchStockData(forceStockUpdate),
+        fetchOrdersData(),
       ]);
 
-      const orders: APIOrder[] = ordersRes.data || ordersRes;
-      const products: APIProduct[] = productsRes || [];
+      setLowStockProducts(stockData.lowStock);
+      setTopProducts(ordersData.topProducts);
 
-      // Generar notificaciones de pedidos recientes (últimas 24 horas)
-      const now = new Date();
-      const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-      const recentOrders = orders.filter((o) => new Date(o.created_at) > last24h);
-
-      const orderNotifications: Notification[] = recentOrders.map((order) => ({
-        id: `order-${order.id}`,
-        type: 'order',
-        title: 'Nuevo Pedido',
-        message: `Pedido #${order.id} de ${order.client_name || 'Cliente'} por $${parseFloat(order.total).toLocaleString()}`,
-        timestamp: order.created_at,
-        icon: FiShoppingCart,
-        color: 'blue.500',
-        read: false,
-      }));
-
-      // Notificaciones de pagos pendientes
-      const pendingPayments = orders.filter((o) => o.payment_status === 'pending');
-      const paymentNotifications: Notification[] = pendingPayments.slice(0, 5).map((order) => ({
-        id: `payment-${order.id}`,
-        type: 'payment',
-        title: 'Pago Pendiente',
-        message: `Pedido #${order.id} - $${parseFloat(order.total).toLocaleString()} pendiente de pago`,
-        timestamp: order.created_at,
-        icon: FiClock,
-        color: 'orange.500',
-        read: false,
-      }));
-
-      // Productos con bajo stock
-      const lowStock = products
-        .filter((p) => p.existencias <= (p.stock_minimo || 5))
-        .map((p) => ({
-          id: p.id,
-          name: p.nombre,
-          stock: p.existencias,
-          minStock: p.stock_minimo || 5,
-          category: p.categoria || 'Sin categoría',
-        }));
-
-      setLowStockProducts(lowStock);
-
-      const stockNotifications: Notification[] = lowStock.slice(0, 10).map((product) => ({
-        id: `stock-${product.id}`,
-        type: 'stock',
-        title: 'Stock Bajo',
-        message: `${product.name} - Solo ${product.stock} unidades disponibles`,
-        timestamp: new Date().toISOString(),
-        icon: FiAlertTriangle,
-        color: 'red.500',
-        read: false,
-      }));
-
-      // Calcular productos más vendidos
-      const productSales: Record<string, { name: string; units: number; revenue: number }> = {};
-      orders.forEach((order) => {
-        order.items?.forEach((item) => {
-          if (!productSales[item.product_name]) {
-            productSales[item.product_name] = { name: item.product_name, units: 0, revenue: 0 };
-          }
-          productSales[item.product_name].units += item.quantity;
-          productSales[item.product_name].revenue += item.total;
-        });
-      });
-
-      const sortedProducts = Object.values(productSales)
-        .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 5);
-
-      setTopProducts(sortedProducts);
-
-      const topProductNotifications: Notification[] = sortedProducts.slice(0, 3).map((product, i) => ({
-        id: `top-${i}`,
-        type: 'top_product',
-        title: `Top ${i + 1} en Ventas`,
-        message: `${product.name} - ${product.units} unidades vendidas ($${product.revenue.toLocaleString()})`,
-        timestamp: new Date().toISOString(),
-        icon: FiTrendingUp,
-        color: 'green.500',
-        read: false,
-      }));
-
-      // Combinar todas las notificaciones y ordenar por fecha
+      // Combinar notificaciones SIN incluir las de stock (stock solo aparece en el panel lateral)
       const allNotifications = [
-        ...orderNotifications,
-        ...paymentNotifications,
-        ...stockNotifications,
-        ...topProductNotifications,
+        ...ordersData.orderNotifications,
+        ...ordersData.paymentNotifications,
+        ...ordersData.topProductNotifications,
       ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
       setNotifications(allNotifications);
@@ -207,11 +260,50 @@ function Notifications() {
     }
   };
 
+  // Actualizar solo pedidos (cada 1 minuto) - NO incluye stock
+  const updateOrdersOnly = async () => {
+    try {
+      const ordersData = await fetchOrdersData();
+
+      setTopProducts(ordersData.topProducts);
+
+      // Combinar notificaciones SIN stock (stock solo en panel lateral)
+      const allNotifications = [
+        ...ordersData.orderNotifications,
+        ...ordersData.paymentNotifications,
+        ...ordersData.topProductNotifications,
+      ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      setNotifications(allNotifications);
+      setLastUpdate(new Date());
+
+    } catch (error) {
+      console.error('Error al actualizar pedidos:', error);
+    }
+  };
+
+  // Efecto inicial - cargar todo
   useEffect(() => {
-    fetchData();
-    // Actualizar cada 30 segundos
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
+    fetchAllData();
+  }, []);
+
+  // Efecto para actualizar pedidos cada 1 minuto
+  useEffect(() => {
+    const ordersInterval = setInterval(updateOrdersOnly, ORDERS_UPDATE_INTERVAL);
+    return () => clearInterval(ordersInterval);
+  }, []);
+
+  // Efecto para verificar si hay que actualizar stock cada 24h (solo actualiza el panel lateral)
+  useEffect(() => {
+    const stockInterval = setInterval(() => {
+      if (shouldUpdateStock()) {
+        fetchStockData(true).then((stockData) => {
+          setLowStockProducts(stockData.lowStock);
+          // NO actualiza las notificaciones principales, solo el panel lateral
+        });
+      }
+    }, STOCK_UPDATE_INTERVAL);
+    return () => clearInterval(stockInterval);
   }, []);
 
   // Marcar notificación como leída
@@ -267,7 +359,7 @@ function Notifications() {
             leftIcon={<FiRefreshCw />}
             size="sm"
             variant="outline"
-            onClick={fetchData}
+            onClick={() => fetchAllData(true)}
             w={{ base: '100%', sm: 'auto' }}
           >
             Actualizar
@@ -478,7 +570,10 @@ function Notifications() {
       {/* Información adicional */}
       <Box mt={6} p={{ base: 3, md: 4 }} bg="blue.50" borderRadius="md" borderLeft="4px" borderColor="blue.500">
         <Text fontSize={{ base: 'xs', md: 'sm' }} color="blue.800">
-          Las notificaciones se actualizan automáticamente cada 30 segundos. Los productos con stock menor o igual al mínimo configurado aparecen en alertas.
+          Los pedidos y pagos se actualizan cada 1 minuto. Las alertas de stock solo aparecen en el panel lateral y se actualizan cada 24 horas.
+          {lastStockUpdate && (
+            <Text as="span" fontWeight="medium"> (Última: {lastStockUpdate.toLocaleString('es-CO')})</Text>
+          )}
         </Text>
       </Box>
     </Box>

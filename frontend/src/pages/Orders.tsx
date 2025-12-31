@@ -82,6 +82,13 @@ interface Order {
   items: APIOrderItem[];
 }
 
+// Función para formatear ID: mostrar últimos 8 caracteres en uppercase
+const formatOrderId = (id: string | number): string => {
+  const idStr = String(id);
+  const last8 = idStr.slice(-8);
+  return `#${last8.toUpperCase()}`;
+};
+
 // Componente StatCard para las métricas superiores
 interface StatCardProps {
   title: string;
@@ -157,7 +164,7 @@ function Orders() {
 
         // Mapear los datos de la API al formato del componente
         const mappedOrders: Order[] = data.map((o) => ({
-          id: `#${o.id}`,
+          id: formatOrderId(o.id),
           client: o.client_name || 'Sin nombre',
           contact: o.client_phone || 'Sin contacto',
           products: o.items.map((item) => item.product_name).join(', '),
