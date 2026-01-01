@@ -183,7 +183,7 @@ app.post('/logs', async (req, res) => {
     }
 });
 
-// Endpoint de verificación Whatsapp
+// Endpoint de webhooks
 const webhookRouter = require('./src/routes/webhooks.routes.cjs');
 app.use('/webhooks', webhookRouter);
 

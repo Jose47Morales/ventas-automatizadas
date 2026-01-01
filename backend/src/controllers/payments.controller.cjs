@@ -1,4 +1,5 @@
 const paymentsService = require("../services/payments.service.cjs");
+const ordersService = require("../services/orders.service.cjs");
 
 module.exports = {
     getPayments: async (req, res) => {
@@ -50,6 +51,63 @@ module.exports = {
             res.json({ success: true, message: 'Payment deleted successfully' });
         } catch (error) {
             res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    preparePayment: async (req, res) => {
+        try {
+            const { order_id } = req.body;
+
+            if (!order_id) {
+                return res.status(400).json({ success: false, message: 'order_id is required' });
+            }
+
+            const order = await ordersService.getOrderById(order_id);
+            if (!order) {
+                return res.status(404).json({ success: false, message: 'Order not found' });
+            }
+
+            if (order.payment_status === 'paid') {
+                return res.status(400).json({ success: false, message: 'Order is already paid' });
+            }
+
+            const amount = Number(order.total_amount);
+            const amountInCents = Math.round(amount * 100);
+            const reference = `ORDER-${order_id}-${Date.now()}`;
+
+            const params = new URLSearchParams({
+                'public-key': process.env.WOMPI_PUBLIC_KEY,
+                currency: 'COP',
+                'amount-in-cents': amountInCents,
+                reference,
+                'redirect-url': process.env.WOMPI_REDIRECT_URL,
+                'customer-email': `${order.client_phone}@whatsapp.temp`,
+                'customer-full-name': order.client_name,
+                'customer-phone-number': order.client_phone,
+            });
+
+            const paymentLink = `https://checkout.wompi.co/p/?${params.toString()}`;
+
+            await paymentsService.createPayment({
+                order_id: order.id,
+                gateway: 'wompi',
+                reference,
+                status: 'pending',
+                amount
+            });
+
+            return res.json({
+                success: true,
+                order_id: order.id,
+                reference,
+                amount,
+                amount_in_cents: amountInCents,
+                payment_link: paymentLink
+            });
+
+        } catch (error) {
+            console.error('Error in preparePayment:', error);
+            return res.status(500).json({ success: false, error: error.message });
         }
     }
 };

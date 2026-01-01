@@ -11,4 +11,6 @@ router.post('/', paymentsCtrl.createPayment);
 router.put('/:id', validateId, paymentsCtrl.updatePayment);
 router.delete('/:id', validateId, paymentsCtrl.deletePayment);
 
+router.post('/prepare', paymentsCtrl.preparePayment);
+
 module.exports = router;

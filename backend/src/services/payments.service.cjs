@@ -2,7 +2,7 @@ const { pool } = require("../database/db.cjs");
 
 module.exports = {
     getAllPayments: async () => {
-        const result = await pool.query('SELECT * FROM payments ORDER BY id DESC');
+        const result = await pool.query('SELECT * FROM payments ORDER BY created_at DESC');
         return result.rows;
     },
 
@@ -12,28 +12,28 @@ module.exports = {
     },
 
     createPayment: async (data) => {
-        const { order_id, gateway, confirmation_code, status } = data;
+        const { order_id, gateway, payment_link, reference, status, amount } = data;
 
         if(!order_id) throw new Error("order_id is required");
 
         const insert = await pool.query(
             `INSERT INTO payments 
-            (order_id, gateway, confirmation_code, status) 
-            VALUES ($1, $2, $3, $4) RETURNING *`,
-            [order_id, gateway, confirmation_code, status]
+            (order_id, gateway, payment_link, reference, status, amount) 
+            VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [order_id, gateway, payment_link || null, reference || null, status, amount]
         ); 
 
         return insert.rows[0];
     },
 
     updatePayment: async (id, data) => {
-        const { order_id, gateway, confirmation_code, status } = data;
+        const { gateway, payment_link, reference, status, amount } = data;
 
         const update = await pool.query(
             `UPDATE payments SET 
-                order_id = $1, gateway = $2, confirmation_code = $3, status = $4
-            WHERE id = $5 RETURNING *`,
-            [order_id, gateway, confirmation_code, status, id]
+                gateway = $1, payment_link = $2, reference = $3, status = $4, amount = $6
+            WHERE id = $7 RETURNING *`,
+            [gateway, payment_link, reference, status, amount, id]
         );
 
         return update.rows[0];
