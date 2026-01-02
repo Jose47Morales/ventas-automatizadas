@@ -73,7 +73,12 @@ module.exports = {
 
             const amount = Number(order.total_amount);
             const amountInCents = Math.round(amount * 100);
-            const reference = `ORDER-${order_id}-${Date.now()}`;
+            const signature = crypto
+                .createHash('sha256')
+                .update(
+                    `${process.env.WOMPI_PRIVATE_KEY}|${amountInCents}|COP|${reference}`
+                )
+                .digest('hex');
             const client_name = order.client_name || 'Cliente';
             const client_phone = order.client_phone || 'unkknown';
 
@@ -81,7 +86,7 @@ module.exports = {
                 'public-key': process.env.WOMPI_PUBLIC_KEY,
                 currency: 'COP',
                 'amount-in-cents': amountInCents,
-                reference,
+                'signature:integrity': signature,
                 'redirect-url': process.env.WOMPI_REDIRECT_URL,
                 'customer-email': `${client_phone}@whatsapp.temp`,
                 'customer-full-name': client_name,
