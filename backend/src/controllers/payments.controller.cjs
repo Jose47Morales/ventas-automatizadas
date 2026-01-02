@@ -74,6 +74,8 @@ module.exports = {
             const amount = Number(order.total_amount);
             const amountInCents = Math.round(amount * 100);
             const reference = `ORDER-${order_id}-${Date.now()}`;
+            const client_name = order.client_name || 'Cliente';
+            const client_phone = order.client_phone || 'unkknown';
 
             const params = new URLSearchParams({
                 'public-key': process.env.WOMPI_PUBLIC_KEY,
@@ -81,9 +83,9 @@ module.exports = {
                 'amount-in-cents': amountInCents,
                 reference,
                 'redirect-url': process.env.WOMPI_REDIRECT_URL,
-                'customer-email': `${order.client_phone}@whatsapp.temp`,
-                'customer-full-name': order.client_name,
-                'customer-phone-number': order.client_phone,
+                'customer-email': `${client_phone}@whatsapp.temp`,
+                'customer-full-name': client_name,
+                'customer-phone-number': client_phone,
             });
 
             const paymentLink = `https://checkout.wompi.co/p/?${params.toString()}`;
@@ -99,6 +101,8 @@ module.exports = {
             return res.json({
                 success: true,
                 order_id: order.id,
+                from: client_phone,
+                userName: client_name,
                 reference,
                 amount,
                 amount_in_cents: amountInCents,
