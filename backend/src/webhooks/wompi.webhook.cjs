@@ -18,7 +18,6 @@ exports.wompiWebhook = async (req, res) => {
         const rawBody = req.body.toString("utf8");
         
         console.log("Raw body length:", rawBody.length);
-        console.log("Raw body preview:", rawBody.substring(0, 200));
 
         // Verifica que el secret existe
         if (!process.env.WOMPI_EVENTS_SECRET) {
@@ -28,8 +27,7 @@ exports.wompiWebhook = async (req, res) => {
 
         // Parsea el evento primero
         const event = JSON.parse(rawBody);
-        console.log("📋 Tipo de evento:", event.event);
-        console.log("📋 Estructura del evento:", JSON.stringify(event, null, 2).substring(0, 500));
+        console.log("Tipo de evento:", event.event);
 
         // Verifica que existen las propiedades necesarias
         if (!event.timestamp || !event.signature || !event.signature.properties) {
@@ -37,9 +35,15 @@ exports.wompiWebhook = async (req, res) => {
             return res.status(400).send("Invalid event structure");
         }
 
+        if (!event.data || !event.data.transaction) {
+            console.error("No se encontró data.transaction en el evento");
+            return res.status(400).send("Invalid event data");
+        }
+
         const timestamp = event.timestamp;
         const signatureData = event.signature;
         const properties = signatureData.properties;
+        const transaction = event.data.transaction;
 
         console.log("Properties a validar:", properties);
 
@@ -47,17 +51,17 @@ exports.wompiWebhook = async (req, res) => {
         let concatenatedValues = `${timestamp}`;
         
         for (const prop of properties) {
-            const keys = prop.split('.');
-            let value = event;
             
             console.log(`Buscando propiedad: ${prop}`);
             
-            for (const key of keys) {
-                if (value === undefined || value === null) {
-                    console.error(`No se pudo acceder a la clave: ${key} en ${prop}`);
-                    return res.status(400).send(`Missing property: ${prop}`);
-                }
-                value = value[key];
+            const actualProperty = prop.replace('transaction.', '');
+            
+            const value = transaction[actualProperty];
+            
+            if (value === undefined || value === null) {
+                console.error(`No se encontró la propiedad: ${actualProperty} en transaction`);
+                console.error(`Propiedades disponibles en transaction:`, Object.keys(transaction));
+                return res.status(400).send(`Missing property: ${prop}`);
             }
             
             console.log(`Valor encontrado para ${prop}: ${value}`);
@@ -86,14 +90,6 @@ exports.wompiWebhook = async (req, res) => {
         }
 
         console.log("Firma válida - procesando evento");
-
-        // Verifica que existe transaction
-        if (!event.data || !event.data.transaction) {
-            console.error("No se encontró data.transaction en el evento");
-            return res.status(400).send("Invalid event data");
-        }
-
-        const transaction = event.data.transaction;
 
         const {
             id: wompi_transaction_id,
@@ -149,8 +145,8 @@ exports.wompiWebhook = async (req, res) => {
             customer_phone = orderResult.rows[0].client_phone;
             customer_name = orderResult.rows[0].client_name;
             order_id = orderResult.rows[0].order_id;
-            console.log("👤 Cliente:", customer_name, customer_phone);
-            console.log("📦 Order ID:", order_id);
+            console.log("Cliente:", customer_name, customer_phone);
+            console.log("Order ID:", order_id);
         }
 
         // Notifica a n8n
