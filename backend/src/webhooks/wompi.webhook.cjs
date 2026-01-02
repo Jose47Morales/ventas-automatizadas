@@ -16,19 +16,13 @@ exports.wompiWebhook = async (req, res) => {
 
         const rawBody = req.body.toString("utf8");
 
-        // Verifica que el secret existe
-        if (!process.env.WOMPI_EVENTS_SECRET) {
-            console.error("WOMPI_EVENTS_SECRET no configurado");
-            return res.status(500).send("Server configuration error");
-        }
-
-        // Parsea el evento primero
+        // Parsea el evento
         const event = JSON.parse(rawBody);
-        console.log("Tipo de evento:", event.event);
+        console.log("📋 Tipo de evento:", event.event);
 
-        // Verifica estructura
-        if (!event.timestamp || !event.signature || !event.signature.properties) {
-            console.error("Estructura de evento inválida");
+        // Verificar estructura
+        if (!event.signature || !event.signature.checksum) {
+            console.error("No se encontró signature.checksum en el evento");
             return res.status(400).send("Invalid event structure");
         }
 
@@ -37,61 +31,24 @@ exports.wompiWebhook = async (req, res) => {
             return res.status(400).send("Invalid event data");
         }
 
-        // CONSTRUYE STRING PARA FIRMA
-        const timestamp = event.timestamp;
-        const signatureData = event.signature;
-        const properties = signatureData.properties;
+        const checksumFromBody = event.signature.checksum;
+        const checksumFromHeader = signature;
+
+        console.log("Checksum del body:", checksumFromBody);
+        console.log("Checksum del header:", checksumFromHeader);
+        console.log("¿Coinciden?:", checksumFromBody === checksumFromHeader);
+
+        // Valida que coincidan
+        if (checksumFromBody !== checksumFromHeader) {
+            console.error("Los checksums no coinciden");
+            console.error("Header:", checksumFromHeader);
+            console.error("Body:", checksumFromBody);
+            return res.status(401).send("Invalid signature");
+        }
+
+        console.log("Firma válida - procesando evento");
+
         const transaction = event.data.transaction;
-
-        console.log("Properties a validar:", properties);
-        console.log("Timestamp:", timestamp);
-
-        // Concatena: timestamp + valores + secret
-        let concatenatedValues = `${timestamp}`;
-        
-        for (const prop of properties) {
-            const actualProperty = prop.replace('transaction.', '');
-            const value = transaction[actualProperty];
-            
-            if (value === undefined || value === null) {
-                console.error(`Propiedad no encontrada: ${actualProperty}`);
-                return res.status(400).send(`Missing property: ${prop}`);
-            }
-            
-            console.log(`${prop}: ${value}`);
-            concatenatedValues += `${value}`;
-        }
-        
-        concatenatedValues += `${process.env.WOMPI_EVENTS_SECRET}`;
-
-        console.log("String para firma (sin puntos):", concatenatedValues);
-
-        // Calcula SHA256
-        const expectedSignature = crypto
-            .createHash("sha256")
-            .update(concatenatedValues)
-            .digest("hex");
-
-        console.log("Firma recibida:", signature);
-        console.log("Firma esperada:", expectedSignature);
-
-        // Valida firma
-        if (signature !== expectedSignature) {
-            console.error("Firma inválida");
-            
-            // Intenta con SHA256 del checksum que Wompi envía
-            const checksumProvided = signatureData.checksum;
-            console.log("Checksum de Wompi:", checksumProvided);
-            
-            if (checksumProvided === expectedSignature) {
-                console.log("Firma válida usando checksum de Wompi");
-            } else {
-                console.error("String usado:", concatenatedValues);
-                return res.status(401).send("Invalid signature");
-            }
-        } else {
-            console.log("Firma válida");
-        }
 
         const {
             id: wompi_transaction_id,
@@ -105,7 +62,8 @@ exports.wompiWebhook = async (req, res) => {
             id: wompi_transaction_id,
             status,
             reference,
-            amount: amount_in_cents / 100
+            amount: amount_in_cents / 100,
+            method: payment_method_type
         });
 
         // Actualiza base de datos
@@ -122,12 +80,12 @@ exports.wompiWebhook = async (req, res) => {
         );
 
         if (updateResult.rowCount === 0) {
-            console.warn("Pago no encontrado:", reference);
+            console.warn("Pago no encontrado con referencia:", reference);
         } else {
-            console.log("Pago actualizado, ID:", updateResult.rows[0].id);
+            console.log("Pago actualizado en BD, ID:", updateResult.rows[0].id);
         }
 
-        // Obtiene info del cliente
+        // Obtener info del cliente
         const orderResult = await pool.query(
             `
             SELECT o.client_phone, o.client_name, o.id as order_id
@@ -146,7 +104,10 @@ exports.wompiWebhook = async (req, res) => {
             customer_phone = orderResult.rows[0].client_phone;
             customer_name = orderResult.rows[0].client_name;
             order_id = orderResult.rows[0].order_id;
-            console.log("Cliente:", customer_name, customer_phone);
+            console.log("Cliente encontrado:", customer_name, "-", customer_phone);
+            console.log("Order ID:", order_id);
+        } else {
+            console.warn("No se encontró el cliente para la referencia:", reference);
         }
 
         // Notifica a n8n
@@ -164,16 +125,45 @@ exports.wompiWebhook = async (req, res) => {
                 order_id
             };
 
-            console.log("Enviando a n8n");
-            await axios.post(process.env.N8N_WEBHOOK_PAYMENTS, n8nPayload);
-            console.log("Notificación enviada");
+            console.log("Enviando notificación a n8n:", JSON.stringify(n8nPayload, null, 2));
+            
+            try {
+                const response = await axios.post(
+                    process.env.N8N_WEBHOOK_PAYMENTS, 
+                    n8nPayload,
+                    {
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        timeout: 10000
+                    }
+                );
+                console.log("Notificación enviada exitosamente a n8n");
+                console.log("Respuesta de n8n:", response.status, response.data);
+            } catch (axiosError) {
+                console.error("Error al enviar a n8n:", axiosError.message);
+                if (axiosError.response) {
+                    console.error("Respuesta de error:", axiosError.response.status, axiosError.response.data);
+                }
+            }
+        } else {
+            console.warn("N8N_WEBHOOK_PAYMENTS no está configurado");
         }
 
-        return res.status(200).json({ received: true });
+        return res.status(200).json({ 
+            received: true,
+            transaction_id: wompi_transaction_id,
+            status: status
+        });
 
     } catch (error) {
-        console.error("Error:", error.message);
-        console.error(error.stack);
-        return res.status(500).send("Webhook error");
+        console.error("Error procesando webhook Wompi:", error.message);
+        console.error("Stack trace:", error.stack);
+        
+        if (error instanceof SyntaxError) {
+            return res.status(400).send("Invalid JSON in webhook body");
+        }
+        
+        return res.status(500).send("Internal server error");
     }
 };
