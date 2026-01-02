@@ -17,16 +17,36 @@ exports.wompiWebhook = async (req, res) => {
         const rawBody = req.body.toString("utf8");
 
         console.log("Raw body length:", rawBody.length);
-        console.log("Raw body preview:", rawBody.substring(0, 100));
 
         if (!process.env.WOMPI_EVENTS_SECRET) {
             console.error("WOMPI_EVENTS_SECRET no está configurado");
             return res.status(500).send("Server misconfiguration");
         }
 
+        const event = JSON.parse(rawBody);
+        console.log("Evento Wompi:", event.event);
+
+        const timestamp = event.timestamp;
+        const signatureData = event.signature;
+        const properties = signatureData.properties;
+
+        let concatenatedValues = `${timestamp}`;
+        for (const prop of properties) {
+            const keys = prop.split('.');
+            let value = event;
+            for (const key of keys) {
+                value = value[key];
+            }
+            concatenatedValues += `.${value}`;
+        }
+
+        concatenatedValues += `.${process.env.WOMPI_EVENTS_SECRET}`;
+
+        console.log("Concatenated values for signature:", concatenatedValues);
+
         const expectedSignature = crypto
             .createHash("sha256")
-            .update(rawBody + process.env.WOMPI_EVENTS_SECRET)
+            .update(concatenatedValues)
             .digest("hex");
 
         console.log("Firma recibida:", signature);
@@ -35,14 +55,11 @@ exports.wompiWebhook = async (req, res) => {
 
         if (signature !== expectedSignature) {
             console.error("Firma inválida para el webhook de Wompi");
-            console.error("Raw body para firma inválida:", rawBody);
+            console.error("String concatenado:", concatenatedValues);
             return res.status(401).send("Invalid signature");
         }
 
         console.log("Firma verificada correctamente");
-
-        const event = JSON.parse(rawBody);
-        console.log("Evento Wompi:", event.event);
 
         const transaction = event.data.transaction;
 
