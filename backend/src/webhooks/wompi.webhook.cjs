@@ -5,7 +5,6 @@ const { pool } = require("../database/db.cjs");
 exports.wompiWebhook = async (req, res) => {
     try {
         console.log("Webhook Wompi recibido");
-        console.log("Headers:", req.headers);
         
         // Obtiene la firma del header
         const signature = req.headers["x-event-checksum"];
@@ -16,8 +15,6 @@ exports.wompiWebhook = async (req, res) => {
         }
 
         const rawBody = req.body.toString("utf8");
-        
-        console.log("Raw body length:", rawBody.length);
 
         // Verifica que el secret existe
         if (!process.env.WOMPI_EVENTS_SECRET) {
@@ -29,50 +26,47 @@ exports.wompiWebhook = async (req, res) => {
         const event = JSON.parse(rawBody);
         console.log("Tipo de evento:", event.event);
 
-        // Verifica que existen las propiedades necesarias
+        // Verifica estructura
         if (!event.timestamp || !event.signature || !event.signature.properties) {
             console.error("Estructura de evento inválida");
             return res.status(400).send("Invalid event structure");
         }
 
         if (!event.data || !event.data.transaction) {
-            console.error("No se encontró data.transaction en el evento");
+            console.error("No se encontró data.transaction");
             return res.status(400).send("Invalid event data");
         }
 
+        // CONSTRUYE STRING PARA FIRMA
         const timestamp = event.timestamp;
         const signatureData = event.signature;
         const properties = signatureData.properties;
         const transaction = event.data.transaction;
 
         console.log("Properties a validar:", properties);
+        console.log("Timestamp:", timestamp);
 
-        // Construye el string para la firma según las propiedades indicadas
+        // Concatena: timestamp + valores + secret
         let concatenatedValues = `${timestamp}`;
         
         for (const prop of properties) {
-            
-            console.log(`Buscando propiedad: ${prop}`);
-            
             const actualProperty = prop.replace('transaction.', '');
-            
             const value = transaction[actualProperty];
             
             if (value === undefined || value === null) {
-                console.error(`No se encontró la propiedad: ${actualProperty} en transaction`);
-                console.error(`Propiedades disponibles en transaction:`, Object.keys(transaction));
+                console.error(`Propiedad no encontrada: ${actualProperty}`);
                 return res.status(400).send(`Missing property: ${prop}`);
             }
             
-            console.log(`Valor encontrado para ${prop}: ${value}`);
-            concatenatedValues += `.${value}`;
+            console.log(`${prop}: ${value}`);
+            concatenatedValues += `${value}`;
         }
         
-        concatenatedValues += `.${process.env.WOMPI_EVENTS_SECRET}`;
+        concatenatedValues += `${process.env.WOMPI_EVENTS_SECRET}`;
 
-        console.log("String para firma:", concatenatedValues);
+        console.log("String para firma (sin puntos):", concatenatedValues);
 
-        // Calcula la firma esperada
+        // Calcula SHA256
         const expectedSignature = crypto
             .createHash("sha256")
             .update(concatenatedValues)
@@ -80,16 +74,24 @@ exports.wompiWebhook = async (req, res) => {
 
         console.log("Firma recibida:", signature);
         console.log("Firma esperada:", expectedSignature);
-        console.log("¿Coinciden?:", signature === expectedSignature);
 
         // Valida firma
         if (signature !== expectedSignature) {
-            console.error("Firma inválida Wompi");
-            console.error("String concatenado:", concatenatedValues);
-            return res.status(401).send("Invalid signature");
+            console.error("Firma inválida");
+            
+            // Intenta con SHA256 del checksum que Wompi envía
+            const checksumProvided = signatureData.checksum;
+            console.log("Checksum de Wompi:", checksumProvided);
+            
+            if (checksumProvided === expectedSignature) {
+                console.log("Firma válida usando checksum de Wompi");
+            } else {
+                console.error("String usado:", concatenatedValues);
+                return res.status(401).send("Invalid signature");
+            }
+        } else {
+            console.log("Firma válida");
         }
-
-        console.log("Firma válida - procesando evento");
 
         const {
             id: wompi_transaction_id,
@@ -103,8 +105,7 @@ exports.wompiWebhook = async (req, res) => {
             id: wompi_transaction_id,
             status,
             reference,
-            amount: amount_in_cents / 100,
-            method: payment_method_type
+            amount: amount_in_cents / 100
         });
 
         // Actualiza base de datos
@@ -121,12 +122,12 @@ exports.wompiWebhook = async (req, res) => {
         );
 
         if (updateResult.rowCount === 0) {
-            console.warn("No se encontró el pago con referencia:", reference);
+            console.warn("Pago no encontrado:", reference);
         } else {
-            console.log("Pago actualizado en BD, ID:", updateResult.rows[0].id);
+            console.log("Pago actualizado, ID:", updateResult.rows[0].id);
         }
 
-        // Obtiene información del pedido y cliente
+        // Obtiene info del cliente
         const orderResult = await pool.query(
             `
             SELECT o.client_phone, o.client_name, o.id as order_id
@@ -146,7 +147,6 @@ exports.wompiWebhook = async (req, res) => {
             customer_name = orderResult.rows[0].client_name;
             order_id = orderResult.rows[0].order_id;
             console.log("Cliente:", customer_name, customer_phone);
-            console.log("Order ID:", order_id);
         }
 
         // Notifica a n8n
@@ -164,24 +164,16 @@ exports.wompiWebhook = async (req, res) => {
                 order_id
             };
 
-            console.log("Enviando a n8n:", n8nPayload);
-
+            console.log("Enviando a n8n");
             await axios.post(process.env.N8N_WEBHOOK_PAYMENTS, n8nPayload);
-            console.log("Notificación enviada a n8n");
-        } else {
-            console.warn("N8N_WEBHOOK_PAYMENTS no configurado");
+            console.log("Notificación enviada");
         }
 
         return res.status(200).json({ received: true });
 
     } catch (error) {
-        console.error("Error webhook Wompi:", error.message);
-        console.error("Stack:", error.stack);
-        
-        if (error instanceof SyntaxError) {
-            return res.status(400).send("Invalid JSON");
-        }
-        
+        console.error("Error:", error.message);
+        console.error(error.stack);
         return res.status(500).send("Webhook error");
     }
 };
