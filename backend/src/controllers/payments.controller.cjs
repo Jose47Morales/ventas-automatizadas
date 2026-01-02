@@ -72,22 +72,28 @@ module.exports = {
                 return res.status(400).json({ success: false, message: 'Order is already paid' });
             }
 
+            const reference = `ORDER-${order.id}-${Date.now()}`;
             const amount = Number(order.total_amount);
             const amountInCents = Math.round(amount * 100);
+            const currency = 'COP';
+
+            const integritySecret = process.env.WOMPI_INTEGRITY_SECRET;
+            const publicKey = process.env.WOMPI_PUBLIC_KEY;
+            
             const signature = crypto
                 .createHash('sha256')
                 .update(
-                    `${process.env.WOMPI_PRIVATE_KEY}|${amountInCents}|COP|${reference}`
+                    `${reference}${amountInCents}${currency}${integritySecret}`
                 )
                 .digest('hex');
-            const reference = `order_${order.id}_${Date.now()}`;
             const client_name = order.client_name || 'Cliente';
             const client_phone = order.client_phone || 'unkknown';
 
             const params = new URLSearchParams({
-                'public-key': process.env.WOMPI_PUBLIC_KEY,
-                currency: 'COP',
+                'public-key': publicKey,
+                currency,
                 'amount-in-cents': amountInCents,
+                reference,
                 'signature:integrity': signature,
                 'redirect-url': process.env.WOMPI_REDIRECT_URL,
                 'customer-email': `${client_phone}@whatsapp.temp`,
