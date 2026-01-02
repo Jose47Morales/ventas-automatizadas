@@ -80,6 +80,7 @@ module.exports = {
                     `${process.env.WOMPI_PRIVATE_KEY}|${amountInCents}|COP|${reference}`
                 )
                 .digest('hex');
+            const reference = `order_${order.id}_${Date.now()}`;
             const client_name = order.client_name || 'Cliente';
             const client_phone = order.client_phone || 'unkknown';
 
