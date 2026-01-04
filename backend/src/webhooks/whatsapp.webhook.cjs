@@ -1,6 +1,5 @@
 const axios = require('axios');
 const crypto = require('crypto');
-const { default: e } = require('express');
 
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW_MS = 60000;
@@ -13,14 +12,6 @@ function checkRateLimit(phoneNumber) {
     if (!rateLimitMap.has(userKey)) {
         rateLimitMap.set(userKey, {
             count: 1,
-            windowStart: now
-        });
-        return true;
-    }
-
-    if (now - phoneRateLimit.windowStart > RATE_LIMIT_WINDOW_MS) {
-        rateLimitMap.set(phoneNumber, {
-            requests: 1,
             windowStart: now
         });
         return true;
@@ -60,7 +51,7 @@ function validateMetaSignature(req) {
         return false;
     }
 
-    const rawBody = JSON.stringify(req.body);
+    const rawBody = req.rawBody || JSON.stringify(req.body);
     const expectedSignature = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex');
 
     try {
@@ -144,19 +135,24 @@ exports.receiveMessage = async (req, res) => {
         const n8nUrl = process.env.N8N_WHATSAPP_WEBHOOK_URL;
         const n8nToken = process.env.N8N_WEBHOOK_AUTH_TOKEN;
 
-        if (!n8nUrl || !n8nToken) {
-            throw new Error("Falta la URL del webhook de n8n o el token de autenticación en las variables de entorno");
+        if (!n8nUrl) {
+            throw new Error("N8N_WHATSAPP_WEBHOOK_URL no está configurado en las variables de entorno");
+        }
+
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+
+        if (n8nToken) {
+            headers['X-N8N-Auth-Token'] = n8nToken;
         }
 
         await axios.post(
             n8nUrl,
             payload,
             {
-                timeout: 5000,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-N8N-Auth-Token': n8nToken
-                }
+                timeout: 10000,
+                headers
             }
         );
 
@@ -166,6 +162,12 @@ exports.receiveMessage = async (req, res) => {
 
     } catch (error) {
         console.error('Error enviando mensaje a n8n: ', error.message);
+        console.error(error.stack);
+
+        if (res.headersSent) {
+            console.error("No se puede enviar la respuesta, los encabezados ya fueron enviados");
+            return;
+        }
 
         if (error.code === 'ECONNABORTED' || error.code === 'ECONNREFUSED') {
             return res.status(503).json({ error: "Servicio n8n no disponible" });
