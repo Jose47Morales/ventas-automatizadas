@@ -14,7 +14,7 @@ exports.wompiWebhook = async (req, res) => {
             return res.status(400).send("Missing signature");
         }
 
-        const rawBody = req.body.toString("utf8");
+        const rawBody = req.rawBody;
 
         // Parsea el evento
         const event = JSON.parse(rawBody);

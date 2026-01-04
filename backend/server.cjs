@@ -5,12 +5,14 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 const express = require('express');
+const rawBodySaver = require('./src/middlewares/rawBody.cjs');
 const cors = require('cors');
 const axios = require('axios');
 const { Pool } = require('pg');
-const rawBodyMiddleware = require('./src/middlewares/rawBody.cjs');
 
 const app = express();
+
+app.use(express.json({ verify: rawBodySaver }));
 
 // Configuración de CORS
 const allowedOrigins = [
@@ -40,8 +42,6 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 app.use('/webhooks/wompi', express.raw({ type: 'application/json' }));
-
-app.use(rawBodyMiddleware);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

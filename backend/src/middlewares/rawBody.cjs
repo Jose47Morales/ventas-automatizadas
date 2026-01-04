@@ -1,16 +1,5 @@
-module.exports = function rawBodyMiddleware(req, res, next) {
-    if (req.headers['content-type'] === 'application/json') {
-        let data = '';
-
-        req.on('data', chunk => {
-            data += chunk;
-        });
-
-        req.on('end', () => {
-            req.rawBody = data;
-            next();
-        });
-    } else {
-        next();
+module.exports = function rawBodySaver(req, res, buf) {
+    if (buf && buf.length) {
+        req.rawBody = buf.toString('utf8');
     }
 };
