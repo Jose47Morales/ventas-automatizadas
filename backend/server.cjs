@@ -4,6 +4,15 @@ if (process.env.NODE_ENV !== 'production') {
     require('dotenv').config();
 }
 
+const rawBodyMiddleware = require('./src/middlewares/rawBody.cjs');
+
+app.use(cors(corsOptions));
+app.use('/webhooks/wompi', express.raw({ type: 'application/json' }));
+
+app.use(rawBodyMiddleware);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -36,11 +45,6 @@ const corsOptions = {
     maxAge: 600, 
 };
 
-app.use(cors(corsOptions));
-app.use('/webhooks/wompi', express.raw({ type: 'application/json' }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
 const PORT = process.env.PORT || 4000;
 
 // Configurar la conexión a PostgreSQL usando variables de entorno
@@ -65,50 +69,6 @@ app.get('/health', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'db failed' });
-    }
-});
-
-// Endpoint de verificación de WhatsApp
-app.get('/webhook/whatsapp-webhook', (req, res) => {
-    const mode = req.query['hub.mode'];
-    const token = req.query['hub.verify_token'];
-    const challenge = req.query['hub.challenge'];
-
-    if (mode && token === process.env.VERIFY_TOKEN) {
-        console.log('WEBHOOK_VERIFIED');
-        res.status(200).send(challenge);
-    } else {
-        res.sendStatus(403);
-    }
-});
-
-// Endpoint para recibir mensajes de WhatsApp y reenviarlos a n8n
-app.post('/webhook/whatsapp-webhook', async (req, res) => {
-    try {
-        const body = req.body;
-        res.sendStatus(200); // Confirmamos recepción
-
-        const entry = body.entry?.[0];
-        const change = entry?.changes?.[0];
-        const value = change?.value;
-        const messages = value?.messages?.[0];
-
-        if (!messages) return;
-
-        const from = messages.from;
-        const type = messages.type;
-        let textBody = null;
-
-        if (type === 'text') textBody = messages.text.body;
-        else if (type === 'button') textBody = messages.button.text || messages.button.payload;
-
-        const payload = { from, text: textBody, type, raw: body };
-
-        await axios.post(process.env.WEBHOOK_URL, payload);
-        console.log('Mensaje enviado a n8n:', payload);
-
-    } catch (error) {
-        console.error('Error procesando el mensaje:', error);
     }
 });
 
@@ -184,6 +144,7 @@ app.post('/logs', async (req, res) => {
 
 // Endpoint de webhooks
 const webhookRouter = require('./src/routes/webhooks.routes.cjs');
+const { raw } = require('body-parser');
 app.use('/webhooks', webhookRouter);
 
 // Iniciar servidor
