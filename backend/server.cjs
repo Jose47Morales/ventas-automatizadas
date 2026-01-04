@@ -4,19 +4,11 @@ if (process.env.NODE_ENV !== 'production') {
     require('dotenv').config();
 }
 
-const rawBodyMiddleware = require('./src/middlewares/rawBody.cjs');
-
-app.use(cors(corsOptions));
-app.use('/webhooks/wompi', express.raw({ type: 'application/json' }));
-
-app.use(rawBodyMiddleware);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const { Pool } = require('pg');
+const rawBodyMiddleware = require('./src/middlewares/rawBody.cjs');
 
 const app = express();
 
@@ -44,6 +36,15 @@ const corsOptions = {
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
     maxAge: 600, 
 };
+
+app.use(cors(corsOptions));
+
+app.use('/webhooks/wompi', express.raw({ type: 'application/json' }));
+
+app.use(rawBodyMiddleware);
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 4000;
 
@@ -144,7 +145,6 @@ app.post('/logs', async (req, res) => {
 
 // Endpoint de webhooks
 const webhookRouter = require('./src/routes/webhooks.routes.cjs');
-const { raw } = require('body-parser');
 app.use('/webhooks', webhookRouter);
 
 // Iniciar servidor
