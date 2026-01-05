@@ -19,4 +19,6 @@ router.delete('/:id', validateId, ordersCtrl.deleteOrder);
 
 router.post('/:id/items', validateId, validateSchema(addOrderItemSchema), ordersCtrl.addItemToOrder);
 
+router.patch('/:id/delivery-address', validateId, ordersCtrl.updateDeliveryAddress);
+
 module.exports = router;

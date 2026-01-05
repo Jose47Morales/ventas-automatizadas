@@ -123,6 +123,26 @@ module.exports = {
         return result.rows[0];
     },
 
+    updateDeliveryAddress: async (order_id, delivery_address) => {
+        if (!delivery_address || !delivery_address.trim()) {
+            throw new Error('Dirección de entrega inválida');
+        }
+
+        const result = await pool.query(
+            `
+            UPDATE orders
+            SET 
+                delivery_address = $1,
+                updated_at = NOW()
+            WHERE id = $2
+            RETURNING *
+            `,
+            [delivery_address.trim(), order_id]
+        );
+        
+        return result.rows[0];
+    },
+
     deleteOrder: async (id) => {
         const result = await pool.query(
             `DELETE FROM orders WHERE id = $1 RETURNING *`, 
