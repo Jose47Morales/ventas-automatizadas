@@ -107,6 +107,32 @@ module.exports = {
         }
     },
 
+    updateDeliveryAddress: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { delivery_address } = req.body;
+
+            const updatedOrder = await ordersService.updateDeliveryAddress(id, delivery_address);
+
+            if (!updatedOrder) {
+                return res.status(404).json({ 
+                    success: false, 
+                    message: 'Order not found' 
+                });
+            }
+
+            return res.json({ 
+                success: true, 
+                message: "Delivery address updated successfully",
+                data: updatedOrder 
+            });
+
+        } catch (error) {
+            console.error('Error updating delivery address:', error);
+            return res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
     deleteOrder: async (req, res) => {
         try {
             const { id } = req.params;  
