@@ -1,5 +1,5 @@
 const ordersService = require("../services/orders.service.cjs");
-const logService = require("../services/log.service.cjs");
+const axios = require('axios');
 
 module.exports = {
     getOrders: async (req, res) => {
@@ -58,13 +58,14 @@ module.exports = {
             };
 
             const newOrder = await ordersService.createOrder(payload);
+            const API_BASE_URL = process.env.API_BASE_URL;
 
             try {
-                await logService.saveLog({
-                    type: 'order_created',
-                    messageId: newOrder?.id,
-                    phone: req.body.customer?.phone || null,
-                    data: newOrder,
+                await axios.post(`${API_BASE_URL}/logs`, {
+                    log_type: 'order_created',
+                    from_number: customer.phone,
+                    status: 'success',
+                    raw_data: newOrder
                 });
             } catch (logError) {
                 console.error('Error saving log:', logError.message);
@@ -135,11 +136,11 @@ module.exports = {
             const item = await ordersService.addItemToOrder(id, req.body);
 
             try {
-                await logService.saveLog({
-                    type: 'order_item_added',
-                    messageId: id,
-                    phone: null,
-                    data: item,
+                await axios.post(`${API_BASE_URL}/logs`, {
+                    log_type: 'order_item_added',
+                    message_id: id,
+                    status: 'success',
+                    raw_data: item,
                 });
             } catch (logError) {
                 console.error('Error saving log:', logError.message);
