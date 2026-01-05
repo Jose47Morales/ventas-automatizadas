@@ -1,12 +1,7 @@
-import { Box, VStack, Text, Button, Icon, Flex } from '@chakra-ui/react';
-import { FiCheckCircle, FiMessageCircle } from 'react-icons/fi';
+import { Box, Text, Icon, Flex } from '@chakra-ui/react';
+import { FiCheckCircle } from 'react-icons/fi';
 
 function PaymentCallback() {
-  // Link de WhatsApp de la bodega (puedes cambiar el número)
-  const whatsappNumber = '573001234567'; // Cambiar por el número real
-  const whatsappMessage = encodeURIComponent('Hola! Acabo de realizar un pago.');
-  const whatsappLink = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
-
   return (
     <Box
       minH="100vh"
@@ -58,7 +53,7 @@ function PaymentCallback() {
         <Text
           fontSize={{ base: 'sm', md: 'md' }}
           color="gray.600"
-          mb={8}
+          mb={6}
           lineHeight="tall"
         >
           Tu pago está siendo procesado correctamente.
@@ -66,30 +61,14 @@ function PaymentCallback() {
           Gracias por tu compra.
         </Text>
 
-        {/* Botón para volver a WhatsApp */}
-        <VStack spacing={4}>
-          <Button
-            as="a"
-            href={whatsappLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            colorScheme="green"
-            size="lg"
-            w="100%"
-            leftIcon={<Icon as={FiMessageCircle} />}
-            _hover={{
-              transform: 'translateY(-2px)',
-              boxShadow: 'lg',
-            }}
-            transition="all 0.2s"
-          >
-            Volver a WhatsApp
-          </Button>
-
-          <Text fontSize="xs" color="gray.500">
-            Si tienes alguna duda, contáctanos por WhatsApp
-          </Text>
-        </VStack>
+        {/* Texto para volver a WhatsApp */}
+        <Text
+          fontSize={{ base: 'md', md: 'lg' }}
+          color="green.600"
+          fontWeight="semibold"
+        >
+          Ya puedes volver a WhatsApp
+        </Text>
 
         {/* Logo o marca */}
         <Box mt={8} pt={6} borderTop="1px" borderColor="gray.200">
