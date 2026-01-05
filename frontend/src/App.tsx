@@ -11,6 +11,7 @@ import Orders from './pages/Orders';
 import Payments from './pages/Payments';
 import Analytics from './pages/Analytics';
 import Notifications from './pages/Notifications';
+import PaymentCallback from './pages/PaymentCallback';
 
 const queryClient = new QueryClient();
 
@@ -30,7 +31,10 @@ function AppRoutes() {
     <Routes>
       {/* Ruta de Login */}
       <Route path="/login" element={<Login />} />
-      
+
+      {/* Ruta pública de callback de pago */}
+      <Route path="/callback" element={<PaymentCallback />} />
+
       {/* Rutas protegidas */}
       <Route
         path="/*"
