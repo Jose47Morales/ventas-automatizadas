@@ -385,6 +385,14 @@ export const ordersAPI = {
     const response = await api.patch(`/api/orders/${id}/status`, { status });
     return response.data;
   },
+
+  // Actualizar estado de pago de un pedido
+  updatePaymentStatus: async (id: string | number, paymentStatus: string) => {
+    const response = await api.patch(`/api/orders/${id}/payment-status`, {
+      status: paymentStatus,
+    });
+    return response.data;
+  },
 };
 
 // ============================================

@@ -72,6 +72,7 @@ interface APIOrder {
 // Interface para las órdenes del componente
 interface Order {
   id: string;
+  rawId: number; // ID original para las peticiones a la API
   client: string;
   contact: string;
   products: string;
@@ -137,6 +138,9 @@ function Orders() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
 
+  // Estado para actualización de estado de pago
+  const [isUpdatingPayment, setIsUpdatingPayment] = useState<string | null>(null);
+
   // Toast para notificaciones
   const toast = useToast();
 
@@ -165,6 +169,7 @@ function Orders() {
         // Mapear los datos de la API al formato del componente
         const mappedOrders: Order[] = data.map((o) => ({
           id: formatOrderId(o.id),
+          rawId: o.id, // Guardar ID original
           client: o.client_name || 'Sin nombre',
           contact: o.client_phone || 'Sin contacto',
           products: o.items.map((item) => item.product_name).join(', '),
@@ -202,6 +207,80 @@ function Orders() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedOrder(null);
+  };
+
+  // Función para marcar como pagado
+  const handleMarkAsPaid = async (order: Order) => {
+    setIsUpdatingPayment(order.id);
+    try {
+      await ordersAPI.updatePaymentStatus(order.rawId, 'paid');
+
+      // Actualizar el estado local
+      setOrders(prev => prev.map(o =>
+        o.id === order.id ? { ...o, status: 'Pagado' } : o
+      ));
+
+      // Actualizar el pedido seleccionado si está abierto en el modal
+      if (selectedOrder?.id === order.id) {
+        setSelectedOrder({ ...selectedOrder, status: 'Pagado' });
+      }
+
+      toast({
+        title: 'Pedido actualizado',
+        description: `El pedido ${order.id} ha sido marcado como Pagado`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error('Error al actualizar pedido:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo actualizar el estado del pedido',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsUpdatingPayment(null);
+    }
+  };
+
+  // Función para marcar como pendiente
+  const handleMarkAsPending = async (order: Order) => {
+    setIsUpdatingPayment(order.id);
+    try {
+      await ordersAPI.updatePaymentStatus(order.rawId, 'pending');
+
+      // Actualizar el estado local
+      setOrders(prev => prev.map(o =>
+        o.id === order.id ? { ...o, status: 'Pendiente' } : o
+      ));
+
+      // Actualizar el pedido seleccionado si está abierto en el modal
+      if (selectedOrder?.id === order.id) {
+        setSelectedOrder({ ...selectedOrder, status: 'Pendiente' });
+      }
+
+      toast({
+        title: 'Pedido actualizado',
+        description: `El pedido ${order.id} ha sido marcado como Pendiente`,
+        status: 'info',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error('Error al actualizar pedido:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo actualizar el estado del pedido',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsUpdatingPayment(null);
+    }
   };
 
   // Opciones de filtro de estado
@@ -348,14 +427,40 @@ function Orders() {
                       {order.client}
                     </Text>
                   </VStack>
-                  <IconButton
-                    aria-label="Ver detalles"
-                    icon={<FiEye />}
-                    size="sm"
-                    variant="ghost"
-                    colorScheme="blue"
-                    onClick={() => handleViewDetails(order)}
-                  />
+                  <Menu>
+                    <MenuButton
+                      as={IconButton}
+                      aria-label="Acciones"
+                      icon={<ChevronDownIcon />}
+                      size="sm"
+                      variant="ghost"
+                      isLoading={isUpdatingPayment === order.id}
+                    />
+                    <MenuList>
+                      <MenuItem
+                        icon={<FiEye />}
+                        onClick={() => handleViewDetails(order)}
+                      >
+                        Ver detalles
+                      </MenuItem>
+                      <MenuItem
+                        icon={<FiCheckCircle />}
+                        onClick={() => handleMarkAsPaid(order)}
+                        isDisabled={order.status === 'Pagado'}
+                        color={order.status === 'Pagado' ? 'gray.400' : 'green.500'}
+                      >
+                        Marcar como Pagado
+                      </MenuItem>
+                      <MenuItem
+                        icon={<FiClock />}
+                        onClick={() => handleMarkAsPending(order)}
+                        isDisabled={order.status === 'Pendiente'}
+                        color={order.status === 'Pendiente' ? 'gray.400' : 'orange.500'}
+                      >
+                        Marcar como Pendiente
+                      </MenuItem>
+                    </MenuList>
+                  </Menu>
                 </Flex>
 
                 <SimpleGrid columns={2} spacing={2} mb={2}>
@@ -440,14 +545,40 @@ function Orders() {
                       </Td>
                       <Td color="gray.600" display={{ base: 'none', lg: 'table-cell' }}>{order.date}</Td>
                       <Td>
-                        <IconButton
-                          aria-label="Ver detalles"
-                          icon={<FiEye />}
-                          size="sm"
-                          variant="ghost"
-                          colorScheme="blue"
-                          onClick={() => handleViewDetails(order)}
-                        />
+                        <Menu>
+                          <MenuButton
+                            as={IconButton}
+                            aria-label="Acciones"
+                            icon={<ChevronDownIcon />}
+                            size="sm"
+                            variant="outline"
+                            isLoading={isUpdatingPayment === order.id}
+                          />
+                          <MenuList>
+                            <MenuItem
+                              icon={<FiEye />}
+                              onClick={() => handleViewDetails(order)}
+                            >
+                              Ver detalles
+                            </MenuItem>
+                            <MenuItem
+                              icon={<FiCheckCircle />}
+                              onClick={() => handleMarkAsPaid(order)}
+                              isDisabled={order.status === 'Pagado'}
+                              color={order.status === 'Pagado' ? 'gray.400' : 'green.500'}
+                            >
+                              Marcar como Pagado
+                            </MenuItem>
+                            <MenuItem
+                              icon={<FiClock />}
+                              onClick={() => handleMarkAsPending(order)}
+                              isDisabled={order.status === 'Pendiente'}
+                              color={order.status === 'Pendiente' ? 'gray.400' : 'orange.500'}
+                            >
+                              Marcar como Pendiente
+                            </MenuItem>
+                          </MenuList>
+                        </Menu>
                       </Td>
                     </Tr>
                   ))
@@ -738,7 +869,26 @@ function Orders() {
                 <Button variant="ghost" onClick={handleCloseModal} size={{ base: 'sm', md: 'md' }} w={{ base: '100%', sm: 'auto' }}>
                   Cerrar
                 </Button>
-                <Button colorScheme="green" leftIcon={<Icon as={FiCheckCircle} />} size={{ base: 'sm', md: 'md' }} w={{ base: '100%', sm: 'auto' }}>
+                <Button
+                  colorScheme="orange"
+                  leftIcon={<Icon as={FiClock} />}
+                  size={{ base: 'sm', md: 'md' }}
+                  w={{ base: '100%', sm: 'auto' }}
+                  onClick={() => handleMarkAsPending(selectedOrder)}
+                  isDisabled={selectedOrder.status === 'Pendiente'}
+                  isLoading={isUpdatingPayment === selectedOrder.id}
+                >
+                  Marcar como Pendiente
+                </Button>
+                <Button
+                  colorScheme="green"
+                  leftIcon={<Icon as={FiCheckCircle} />}
+                  size={{ base: 'sm', md: 'md' }}
+                  w={{ base: '100%', sm: 'auto' }}
+                  onClick={() => handleMarkAsPaid(selectedOrder)}
+                  isDisabled={selectedOrder.status === 'Pagado'}
+                  isLoading={isUpdatingPayment === selectedOrder.id}
+                >
                   Marcar como Pagado
                 </Button>
               </Stack>

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Flex,
@@ -26,8 +27,63 @@ import {
   FiCheckCircle,
   FiClock,
   FiRefreshCw,
+  FiExternalLink,
 } from 'react-icons/fi';
 import { ordersAPI, productsAPI } from '../services/api';
+
+// Hook para reproducir sonido de notificación
+const useNotificationSound = () => {
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  const playSound = useCallback(() => {
+    try {
+      // Crear AudioContext si no existe
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+
+      const ctx = audioContextRef.current;
+
+      // Reanudar contexto si está suspendido (política de autoplay)
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
+      const now = ctx.currentTime;
+
+      // Crear osciladores para un sonido agradable tipo "ding-dong"
+      // Primera nota (más alta)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(880, now); // A5
+      gain1.gain.setValueAtTime(0.3, now);
+      gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.3);
+
+      // Segunda nota (más baja, con delay)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(659.25, now + 0.15); // E5
+      gain2.gain.setValueAtTime(0, now);
+      gain2.gain.setValueAtTime(0.25, now + 0.15);
+      gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.15);
+      osc2.stop(now + 0.5);
+
+    } catch (error) {
+      console.warn('No se pudo reproducir el sonido de notificación:', error);
+    }
+  }, []);
+
+  return playSound;
+};
 
 
 // Interfaces
@@ -52,13 +108,14 @@ interface APIProduct {
 
 interface Notification {
   id: string;
-  type: 'order' | 'payment' | 'stock' | 'top_product';
+  type: 'order' | 'payment' | 'stock' | 'top_product' | 'awaiting_payment';
   title: string;
   message: string;
   timestamp: string;
   icon: any;
   color: string;
   read: boolean;
+  orderId?: number; // Para navegación directa al pedido
 }
 
 interface TopProduct {
@@ -89,7 +146,13 @@ function Notifications() {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [lastStockUpdate, setLastStockUpdate] = useState<Date | null>(null);
 
+  // Referencia para rastrear IDs de notificaciones previas
+  const previousNotificationIdsRef = useRef<Set<string>>(new Set());
+  const isFirstLoadRef = useRef(true);
+
   const toast = useToast();
+  const navigate = useNavigate();
+  const playNotificationSound = useNotificationSound();
 
   // Responsive values
   const headingSize = useBreakpointValue({ base: 'md', md: 'lg' });
@@ -181,17 +244,18 @@ function Notifications() {
       read: false,
     }));
 
-    // Notificaciones de pagos pendientes
+    // Notificaciones de pagos pendientes - REQUIEREN ACCIÓN DEL OPERADOR
     const pendingPayments = orders.filter((o) => o.payment_status === 'pending');
-    const paymentNotifications: Notification[] = pendingPayments.slice(0, 5).map((order) => ({
+    const paymentNotifications: Notification[] = pendingPayments.slice(0, 10).map((order) => ({
       id: `payment-${order.id}`,
-      type: 'payment' as const,
-      title: 'Pago Pendiente',
-      message: `Pedido #${String(order.id).slice(-8).toUpperCase()} - $${parseFloat(order.total).toLocaleString()} pendiente de pago`,
+      type: 'awaiting_payment' as const,
+      title: 'Confirmar Pago',
+      message: `Pedido #${String(order.id).slice(-8).toUpperCase()} de ${order.client_name || 'Cliente'} - $${parseFloat(order.total).toLocaleString()} esperando confirmación`,
       timestamp: order.created_at,
-      icon: FiClock,
-      color: 'orange.500',
+      icon: FiDollarSign,
+      color: 'purple.500',
       read: false,
+      orderId: order.id,
     }));
 
     // Calcular productos más vendidos
@@ -243,6 +307,29 @@ function Notifications() {
         ...ordersData.topProductNotifications,
       ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
+      // Detectar nuevas notificaciones (solo pedidos y pagos pendientes)
+      if (!isFirstLoadRef.current) {
+        const newNotificationIds = allNotifications
+          .filter(n => n.type === 'order' || n.type === 'awaiting_payment')
+          .map(n => n.id);
+
+        const hasNewNotifications = newNotificationIds.some(
+          id => !previousNotificationIdsRef.current.has(id)
+        );
+
+        if (hasNewNotifications) {
+          playNotificationSound();
+        }
+      }
+
+      // Actualizar referencia de IDs previos
+      previousNotificationIdsRef.current = new Set(
+        allNotifications
+          .filter(n => n.type === 'order' || n.type === 'awaiting_payment')
+          .map(n => n.id)
+      );
+      isFirstLoadRef.current = false;
+
       setNotifications(allNotifications);
       setLastUpdate(new Date());
 
@@ -273,6 +360,22 @@ function Notifications() {
         ...ordersData.paymentNotifications,
         ...ordersData.topProductNotifications,
       ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      // Detectar nuevas notificaciones (solo pedidos y pagos pendientes)
+      const newNotificationIds = allNotifications
+        .filter(n => n.type === 'order' || n.type === 'awaiting_payment')
+        .map(n => n.id);
+
+      const hasNewNotifications = newNotificationIds.some(
+        id => !previousNotificationIdsRef.current.has(id)
+      );
+
+      if (hasNewNotifications) {
+        playNotificationSound();
+      }
+
+      // Actualizar referencia de IDs previos
+      previousNotificationIdsRef.current = new Set(newNotificationIds);
 
       setNotifications(allNotifications);
       setLastUpdate(new Date());
@@ -323,8 +426,13 @@ function Notifications() {
 
   // Estadísticas rápidas
   const orderCount = notifications.filter((n) => n.type === 'order').length;
-  const paymentCount = notifications.filter((n) => n.type === 'payment').length;
+  const awaitingPaymentCount = notifications.filter((n) => n.type === 'awaiting_payment').length;
   const stockCount = lowStockProducts.length;
+
+  // Función para navegar a pedidos
+  const goToOrders = () => {
+    navigate('/orders');
+  };
 
   if (isLoading) {
     return (
@@ -388,13 +496,26 @@ function Notifications() {
             </Box>
           </HStack>
         </Box>
-        <Box bg="orange.50" p={{ base: 3, md: 4 }} borderRadius="lg" borderLeft="4px" borderColor="orange.500">
+        <Box
+          bg="purple.50"
+          p={{ base: 3, md: 4 }}
+          borderRadius="lg"
+          borderLeft="4px"
+          borderColor="purple.500"
+          cursor="pointer"
+          onClick={goToOrders}
+          _hover={{ bg: 'purple.100' }}
+          transition="background 0.2s"
+        >
           <HStack spacing={{ base: 2, md: 3 }}>
-            <Icon as={FiDollarSign} color="orange.500" boxSize={{ base: 5, md: 6 }} />
-            <Box>
-              <Text fontSize={{ base: 'lg', md: '2xl' }} fontWeight="bold" color="gray.800">{paymentCount}</Text>
-              <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600">Pagos Pendientes</Text>
+            <Icon as={FiDollarSign} color="purple.500" boxSize={{ base: 5, md: 6 }} />
+            <Box flex={1}>
+              <Text fontSize={{ base: 'lg', md: '2xl' }} fontWeight="bold" color="gray.800">{awaitingPaymentCount}</Text>
+              <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600">Confirmar Pagos</Text>
             </Box>
+            {awaitingPaymentCount > 0 && (
+              <Icon as={FiExternalLink} color="purple.400" boxSize={4} />
+            )}
           </HStack>
         </Box>
         <Box bg="red.50" p={{ base: 3, md: 4 }} borderRadius="lg" borderLeft="4px" borderColor="red.500">
@@ -441,12 +562,17 @@ function Notifications() {
                   <Box
                     key={notification.id}
                     p={{ base: 3, md: 4 }}
-                    bg={notification.read ? 'white' : 'purple.25'}
+                    bg={notification.read ? 'white' : (notification.type === 'awaiting_payment' ? 'purple.50' : 'blue.50')}
                     borderBottom="1px"
                     borderColor="gray.100"
                     cursor="pointer"
                     _hover={{ bg: 'gray.50' }}
-                    onClick={() => markAsRead(notification.id)}
+                    onClick={() => {
+                      markAsRead(notification.id);
+                      if (notification.type === 'awaiting_payment') {
+                        goToOrders();
+                      }
+                    }}
                   >
                     <HStack spacing={3} align="start">
                       <Box
@@ -459,19 +585,32 @@ function Notifications() {
                       </Box>
                       <Box flex={1} minW={0}>
                         <Flex justify="space-between" align="start" mb={1} gap={2} wrap="wrap">
-                          <Text fontWeight="semibold" color="gray.800" fontSize={{ base: 'sm', md: 'md' }}>
-                            {notification.title}
-                          </Text>
-                          {!notification.read && (
-                            <Badge colorScheme="purple" fontSize="xs">Nueva</Badge>
+                          <HStack spacing={2}>
+                            <Text fontWeight="semibold" color="gray.800" fontSize={{ base: 'sm', md: 'md' }}>
+                              {notification.title}
+                            </Text>
+                            {notification.type === 'awaiting_payment' && (
+                              <Badge colorScheme="purple" fontSize="xs">Acción requerida</Badge>
+                            )}
+                          </HStack>
+                          {!notification.read && notification.type !== 'awaiting_payment' && (
+                            <Badge colorScheme="blue" fontSize="xs">Nueva</Badge>
                           )}
                         </Flex>
                         <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600" noOfLines={2}>
                           {notification.message}
                         </Text>
-                        <Text fontSize="xs" color="gray.400" mt={1}>
-                          {new Date(notification.timestamp).toLocaleString('es-CO')}
-                        </Text>
+                        <Flex justify="space-between" align="center" mt={1}>
+                          <Text fontSize="xs" color="gray.400">
+                            {new Date(notification.timestamp).toLocaleString('es-CO')}
+                          </Text>
+                          {notification.type === 'awaiting_payment' && (
+                            <HStack spacing={1} color="purple.500" fontSize="xs">
+                              <Text>Ir a Pedidos</Text>
+                              <Icon as={FiExternalLink} boxSize={3} />
+                            </HStack>
+                          )}
+                        </Flex>
                       </Box>
                     </HStack>
                   </Box>
