@@ -13,7 +13,7 @@ router.get('/', ordersCtrl.getOrders);
 router.get('/:id', validateId, ordersCtrl.getOrder);
 
 router.post('/', validateSchema(createOrderSchema), ordersCtrl.createOrder);
-router.put('/:id', validateId, validateSchema(updateOrderSchema), ordersCtrl.updateOrder);
+router.patch('/:id/payment-status', validateId, ordersCtrl.updatePaymentStatus);
 
 router.delete('/:id', validateId, ordersCtrl.deleteOrder);
 
