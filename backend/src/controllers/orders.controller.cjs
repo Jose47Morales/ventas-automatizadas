@@ -83,12 +83,13 @@ module.exports = {
         }
     },  
 
-    updateOrder: async (req, res) => {
+    updatePaymentStatus: async (req, res) => {
         try {
             const { id } = req.params;
-            const updated = await ordersService.updateOrder(id, req.body);
+            const { status } = req.body;
+            const updatedOrder = await ordersService.updatePaymentStatus(id, status);
             
-            if (!updated) {
+            if (!updatedOrder) {
                 return res.status(404).json({ 
                     success: false, 
                     message: 'Order not found' 
@@ -98,7 +99,7 @@ module.exports = {
             return res.json({ 
                 success: true, 
                 message: "Order updated successfully",
-                data: updated 
+                data: updatedOrder
             });
 
         } catch (error) {
