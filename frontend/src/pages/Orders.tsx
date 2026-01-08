@@ -45,7 +45,7 @@ import {
   FiChevronsLeft,
   FiChevronsRight,
 } from 'react-icons/fi';
-import { ordersAPI } from '../services/api';
+import { ordersAPI, paymentsAPI, chatSessionsAPI } from '../services/api';
 
 // Interface para los items de la orden de la API
 interface APIOrderItem {
@@ -213,7 +213,37 @@ function Orders() {
   const handleMarkAsPaid = async (order: Order) => {
     setIsUpdatingPayment(order.id);
     try {
+      // 1. Actualizar estado de pago en orders
       await ordersAPI.updatePaymentStatus(order.rawId, 'paid');
+
+      // 2. Buscar y actualizar el pago asociado (si existe)
+      try {
+        const payment = await paymentsAPI.getByOrderId(order.rawId);
+        if (payment) {
+          await paymentsAPI.update(payment.id, {
+            gateway: payment.gateway,
+            payment_link: payment.payment_link,
+            reference: payment.reference,
+            status: 'paid',
+            amount: payment.amount,
+          });
+        }
+      } catch (paymentError) {
+        console.warn('No se encontró pago asociado o error al actualizar:', paymentError);
+      }
+
+      // 3. Actualizar chat_session a 'idle' usando el teléfono del cliente
+      if (order.contact && order.contact !== 'Sin contacto') {
+        try {
+          await chatSessionsAPI.save({
+            user_phone: order.contact,
+            state: 'idle',
+            data: {},
+          });
+        } catch (sessionError) {
+          console.warn('Error al actualizar chat_session:', sessionError);
+        }
+      }
 
       // Actualizar el estado local
       setOrders(prev => prev.map(o =>
@@ -250,7 +280,37 @@ function Orders() {
   const handleMarkAsPending = async (order: Order) => {
     setIsUpdatingPayment(order.id);
     try {
+      // 1. Actualizar estado de pago en orders
       await ordersAPI.updatePaymentStatus(order.rawId, 'pending');
+
+      // 2. Buscar y actualizar el pago asociado (si existe)
+      try {
+        const payment = await paymentsAPI.getByOrderId(order.rawId);
+        if (payment) {
+          await paymentsAPI.update(payment.id, {
+            gateway: payment.gateway,
+            payment_link: payment.payment_link,
+            reference: payment.reference,
+            status: 'pending',
+            amount: payment.amount,
+          });
+        }
+      } catch (paymentError) {
+        console.warn('No se encontró pago asociado o error al actualizar:', paymentError);
+      }
+
+      // 3. Actualizar chat_session a 'awaiting_payment' usando el teléfono del cliente
+      if (order.contact && order.contact !== 'Sin contacto') {
+        try {
+          await chatSessionsAPI.save({
+            user_phone: order.contact,
+            state: 'awaiting_payment',
+            data: {},
+          });
+        } catch (sessionError) {
+          console.warn('Error al actualizar chat_session:', sessionError);
+        }
+      }
 
       // Actualizar el estado local
       setOrders(prev => prev.map(o =>

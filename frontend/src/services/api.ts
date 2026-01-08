@@ -417,6 +417,43 @@ export const paymentsAPI = {
     const response = await api.post(`/api/payments/${id}/confirm`);
     return response.data;
   },
+
+  // Actualizar un pago
+  update: async (id: string | number, data: {
+    gateway?: string;
+    payment_link?: string;
+    reference?: string;
+    status: string;
+    amount?: number;
+  }) => {
+    const response = await api.put(`/api/payments/${id}`, data);
+    return response.data;
+  },
+
+  // Obtener pago por order_id
+  getByOrderId: async (orderId: string | number) => {
+    const response = await api.get('/api/payments');
+    const payments = response.data || [];
+    return payments.find((p: any) => p.order_id === orderId || String(p.order_id) === String(orderId));
+  },
+};
+
+// ============================================
+// CHAT SESSIONS
+// ============================================
+
+export const chatSessionsAPI = {
+  // Obtener sesión por teléfono
+  getByPhone: async (phone: string) => {
+    const response = await api.get(`/api/chat-sessions/${phone}`);
+    return response.data;
+  },
+
+  // Guardar/actualizar sesión (upsert)
+  save: async (data: { user_phone: string; state: string; data?: any }) => {
+    const response = await api.post('/api/chat-sessions', data);
+    return response.data;
+  },
 };
 
 // ============================================
