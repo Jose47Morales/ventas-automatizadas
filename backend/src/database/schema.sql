@@ -133,7 +133,9 @@ CREATE TABLE IF NOT EXISTS orders (
     notes TEXT,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    delivery_address TEXT
 );
 
 /* =====================
@@ -150,6 +152,8 @@ CREATE TABLE IF NOT EXISTS order_items (
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    subtotal NUMERIC(14,2) NOT NULL DEFAULT 0,
 
     CONSTRAINT fk_order_items_order
         FOREIGN KEY (order_id)
@@ -170,11 +174,13 @@ CREATE TABLE IF NOT EXISTS payments (
 
     order_id UUID NOT NULL,
     gateway TEXT NOT NULL,
-    confirmation_code TEXT,
     status TEXT NOT NULL,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    payment_link TEXT,
+    amount NUMERIC(14,2),
 
     CONSTRAINT fk_payments_order
         FOREIGN KEY (order_id)
