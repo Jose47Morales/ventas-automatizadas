@@ -385,6 +385,14 @@ export const ordersAPI = {
     const response = await api.patch(`/api/orders/${id}/status`, { status });
     return response.data;
   },
+
+  // Actualizar estado de pago de un pedido
+  updatePaymentStatus: async (id: string | number, paymentStatus: string) => {
+    const response = await api.patch(`/api/orders/${id}/payment-status`, {
+      status: paymentStatus,
+    });
+    return response.data;
+  },
 };
 
 // ============================================
@@ -407,6 +415,43 @@ export const paymentsAPI = {
   // Confirmar un pago
   confirm: async (id: number) => {
     const response = await api.post(`/api/payments/${id}/confirm`);
+    return response.data;
+  },
+
+  // Actualizar un pago
+  update: async (id: string | number, data: {
+    gateway?: string;
+    payment_link?: string;
+    reference?: string;
+    status: string;
+    amount?: number;
+  }) => {
+    const response = await api.put(`/api/payments/${id}`, data);
+    return response.data;
+  },
+
+  // Obtener pago por order_id
+  getByOrderId: async (orderId: string | number) => {
+    const response = await api.get('/api/payments');
+    const payments = response.data || [];
+    return payments.find((p: any) => p.order_id === orderId || String(p.order_id) === String(orderId));
+  },
+};
+
+// ============================================
+// CHAT SESSIONS
+// ============================================
+
+export const chatSessionsAPI = {
+  // Obtener sesión por teléfono
+  getByPhone: async (phone: string) => {
+    const response = await api.get(`/api/chat-sessions/${phone}`);
+    return response.data;
+  },
+
+  // Guardar/actualizar sesión (upsert)
+  save: async (data: { user_phone: string; state: string; data?: any }) => {
+    const response = await api.post('/api/chat-sessions', data);
     return response.data;
   },
 };
