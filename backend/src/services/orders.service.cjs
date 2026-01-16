@@ -49,6 +49,33 @@ module.exports = {
         return result.rows[0];
     },
 
+    getOrdersByUserPhone: async (phone) => {
+        const normalizedPhone = phone.replace(/[\s\-\(\)]/g, '');
+
+        const query = `
+            SELECT
+                o.*,
+                json_agg(
+                    json_build_object(
+                        'product_id', oi.product_id,
+                        'product_name', p.nombre,
+                        'quantity', oi.quantity,
+                        'unit_price', oi.unit_price,
+                        'total', oi.subtotal        
+                    )
+                ) FILTER (WHERE oi.product_id IS NOT NULL) AS items
+            FROM orders o
+            LEFT JOIN order_items oi ON oi.order_id = o.id
+            LEFT JOIN products p ON p.id = oi.product_id
+            WHERE o.client_phone = $1
+            GROUP BY o.id
+            ORDER BY o.id DESC;
+        `;
+        
+        const result = await pool.query(query, [normalizedPhone]);
+        return result.rows;
+    },
+
     createOrder: async ({ client_name, client_phone, items }) => {
         const client = await pool.connect();
 

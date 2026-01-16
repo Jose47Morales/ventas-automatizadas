@@ -11,6 +11,7 @@ const validateId = require("../validators/validateUuid.cjs");
 
 router.get('/', ordersCtrl.getOrders);
 router.get('/:id', validateId, ordersCtrl.getOrder);
+router.get('/user/:phone', ordersCtrl.getOrdersByUserPhone);
 
 router.post('/', validateSchema(createOrderSchema), ordersCtrl.createOrder);
 router.patch('/:id/payment-status', validateId, ordersCtrl.updatePaymentStatus);

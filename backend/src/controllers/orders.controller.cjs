@@ -35,6 +35,39 @@ module.exports = {
         }
     },
 
+    getOrdersByUserPhone: async (req, res) => {
+        try {
+            const { phone } = req.params;
+
+            if (!phone) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Phone number is required' 
+                });
+            }
+
+            const orders = await ordersService.getOrdersByUserPhone(phone);
+
+            if (!orders || orders.length === 0) {
+                return res.status(404).json({ 
+                    success: false, 
+                    message: 'No orders found for this phone number',
+                    data: [] 
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                count: `${orders.length} orders found for phone ${phone}`,
+                data: orders
+            });
+
+        } catch (error) {
+            console.error('Error fetching orders by phone:', error);
+            return res.status(500).json({ success: false, message: 'Error fetching orders by phone: ', error: error.message });
+        }
+    },
+
     createOrder: async (req, res) => {
         try {
             const { customer, items } = req.body;
