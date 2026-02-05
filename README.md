@@ -1,11 +1,33 @@
-# **Proyecto: Ventas Automatizadas**
-### **Versión inicial:** Octubre 2025
-### **Equipo de desarrollo:** 3 personas
+# **Sistema de Ventas Automatizadas por WhatsApp**
+Plataforma de ventas automatizadas con WhatsApp, chatbot inteligente, gestión de pedidos, domicilios y estados de entrega, integrada con backend propio y flujos n8n.
 
----
+## ¿Que problemas resuelve?
+- Ventas manuales por WhatsApp
+- Errores en pedidos
+- Flata de trazabilidad en domicilios
+- Escalabilidad limitada
 
-## **1. Descripción general del proyecto**
+## Funcionalidades clave
+- Chatbot por categoría
+- Venta Mayor / Detal
+- Venta por domicilio
+- Estados del pedido
+- Asignación de conductor
+- Backend en Node.js + PostgreSQL
 
-Ventas Automatizadas es una plataforma inteligente que automatiza los procesos y gestión de inventario en tiempo real para ofrecer ventas completamente autónomas a través de WhatsApp y web.
+## Stack
+- Node.js (Express)
+- PostgreSQL
+- n8n
+- WhatsApp Cloud API
+- Docker (opcional)
 
-El sistema permite atender clientes 24/7 sin personal humano, mostrando productos, procesando pagos, actualizando el inventario y generando métricas de rendimiento comercial en tiempo real.
+## Aquitectura
+```nginx
+Web / WhatsApp -> n8n -> Backend -> DB
+```
+
+## Estado del proyecto
+```nginx
+MVP funcional - en proceso de ampliación
+```
